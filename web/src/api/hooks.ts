@@ -5,6 +5,7 @@ import type {
   CreateSessionRequest,
   CreateSessionResponse,
   HealthResponse,
+  LogoutResponse,
 } from "./types";
 
 export function useHealthQuery() {
@@ -30,6 +31,16 @@ export function useCreateSessionMutation() {
       apiRequest<CreateSessionResponse>("/sessions", {
         method: "POST",
         body: { email, openai_key } satisfies CreateSessionRequest,
+      }),
+  });
+}
+
+export function useLogoutMutation() {
+  return useMutation<LogoutResponse, Error, string>({
+    mutationFn: (token) =>
+      apiRequest<LogoutResponse>("/logout", {
+        method: "DELETE",
+        token,
       }),
   });
 }

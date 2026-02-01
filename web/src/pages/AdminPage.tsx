@@ -1,3 +1,5 @@
+import { Activity, RefreshCw } from "lucide-react";
+
 import { useHealthQuery } from "../api/hooks";
 import CreateSessionForm from "../components/CreateSessionForm";
 
@@ -14,7 +16,10 @@ export default function AdminPage() {
         <article className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-8 shadow-2xl shadow-slate-950/40">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-widest text-slate-400">API Status</p>
+              <p className="flex items-center gap-2 text-sm uppercase tracking-widest text-slate-400">
+                <Activity className="h-4 w-4" />
+                API Status
+              </p>
               <h2 className="text-2xl font-semibold text-white">
                 {healthQuery.isLoading && "Checking..."}
                 {healthQuery.isError && "Offline"}
@@ -22,10 +27,11 @@ export default function AdminPage() {
               </h2>
             </div>
             <button
-              className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
               onClick={() => healthQuery.refetch()}
               disabled={healthQuery.isLoading}
             >
+              <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
           </div>
