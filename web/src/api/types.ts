@@ -5,6 +5,7 @@ export interface HealthResponse {
 
 export interface CreateSessionRequest {
   email: string;
+  openai_key: string;
 }
 
 export interface CreateSessionResponse {
