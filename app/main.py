@@ -45,7 +45,6 @@ class UserSession(Base):
 
 class SessionCreate(BaseModel):
     email: str
-    openai_key: str
 
 
 class SessionResponse(BaseModel):
@@ -73,22 +72,28 @@ def require_session_token(
     if session_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid session",
+            detail="Session token missing",
         )
 
-    session = db.query(UserSession).filter(UserSession.session_token == session_token).first()
+    session = (
+        db.query(UserSession).filter(UserSession.session_token == session_token).first()
+    )
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid session",
+            detail="Invalid session token",
         )
     return session
 
 
-@app.get("/session-status-check", dependencies=[Depends(require_session_token)])
-async def protected():
-    """Session status check route"""
-    return {"status": "success", "message": "Session is valid"}
+def generate_openai_key() -> str:
+    return f"sk-{secrets.token_urlsafe(32)}"
+
+
+@app.get("/")
+async def root():
+    return {"status": "success", "message": "Zepp.ai API is running"}
+
 
 @app.get("/user", response_model=UserResponse)
 async def get_user(session: UserSession = Depends(require_session_token)):
@@ -99,7 +104,10 @@ async def get_user(session: UserSession = Depends(require_session_token)):
     "/sessions",
     response_model=SessionResponse,
 )
-async def create_session(payload: SessionCreate, db: DBSession = Depends(get_db)):
+async def create_session(
+    payload: SessionCreate,
+    db: DBSession = Depends(get_db),
+):
     """Create a new session token for the given email"""
     token = secrets.token_urlsafe(32)
 
@@ -108,19 +116,18 @@ async def create_session(payload: SessionCreate, db: DBSession = Depends(get_db)
         is not None
     ):
         token = secrets.token_urlsafe(32)
-    if (
-        db.query(UserSession).filter(UserSession.openai_key == payload.openai_key).first()
+
+    openai_key = generate_openai_key()
+    while (
+        db.query(UserSession).filter(UserSession.openai_key == openai_key).first()
         is not None
     ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="OpenAI key already in use",
-        )
+        openai_key = generate_openai_key()
 
     session_entry = UserSession(
         email=payload.email,
         session_token=token,
-        openai_key=payload.openai_key,
+        openai_key=openai_key,
     )
     db.add(session_entry)
     db.commit()
