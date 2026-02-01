@@ -13,3 +13,8 @@ export interface CreateSessionResponse {
   session_token: string;
   openai_key: string;
 }
+
+export interface LogoutResponse {
+  status: string;
+  message: string;
+}

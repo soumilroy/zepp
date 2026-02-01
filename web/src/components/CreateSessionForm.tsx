@@ -1,3 +1,4 @@
+import { CheckCircle2, KeyRound, Mail, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { useCreateSessionMutation } from "../api/hooks";
@@ -31,7 +32,10 @@ export default function CreateSessionForm() {
         })}
       >
         <label className="text-sm text-slate-300">
-          Email
+          <span className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-slate-400" />
+            Email
+          </span>
           <input
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
             type="email"
@@ -48,7 +52,10 @@ export default function CreateSessionForm() {
         {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
 
         <label className="text-sm text-slate-300">
-          OpenAI key
+          <span className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-slate-400" />
+            OpenAI key
+          </span>
           <input
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
             type="password"
@@ -64,9 +71,10 @@ export default function CreateSessionForm() {
 
         <button
           type="submit"
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={createSession.isPending}
         >
+          <Sparkles className="h-4 w-4" />
           {createSession.isPending ? "Creating..." : "Create session"}
         </button>
 
@@ -75,7 +83,10 @@ export default function CreateSessionForm() {
         )}
         {createSession.data && !createSession.isError && (
           <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-sm">
-            <p className="text-emerald-400">Session created!</p>
+            <p className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Session created!
+            </p>
             <p className="mt-2 text-slate-300">
               <span className="font-semibold">Token:</span> {createSession.data.session_token}
             </p>

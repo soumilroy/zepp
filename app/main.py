@@ -126,3 +126,31 @@ async def create_session(payload: SessionCreate, db: DBSession = Depends(get_db)
         session_token=session_entry.session_token,
         openai_key=session_entry.openai_key,
     )
+
+
+@app.delete("/logout")
+async def logout(
+    session_token: Optional[str] = Header(default=None, alias="X-Session-Token"),
+    db: DBSession = Depends(get_db),
+):
+    """Invalidate the current session token."""
+    if session_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session",
+        )
+
+    session_entry = (
+        db.query(UserSession)
+        .filter(UserSession.session_token == session_token)
+        .first()
+    )
+    if session_entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session",
+        )
+
+    db.delete(session_entry)
+    db.commit()
+    return {"status": "success", "message": "Logged out"}
