@@ -1,0 +1,26 @@
+services:
+  backend-tests:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    command: pytest -q
+    working_dir: /workspace/app
+    volumes:
+      - ./app:/workspace/app
+    environment:
+      - PYTHONPATH=/workspace/app
+
+  frontend-tests:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    command: npm run test -- --run
+    working_dir: /usr/src/app
+    volumes:
+      - ./web:/usr/src/app
+      - frontend_test_node_modules:/usr/src/app/node_modules
+    environment:
+      - CI=1
+
+volumes:
+  frontend_test_node_modules:

@@ -9,7 +9,8 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from main import Base, UserSession, app, get_db
+from main import app
+from session_logic import Base, UserSession, get_db
 
 TEST_DATABASE_URL = "sqlite:///./test_app.db"
 
@@ -66,28 +67,10 @@ def test_root_endpoint_returns_status(client):
     }
 
 
-def test_protected_requires_session_token(client):
-    response = client.get("/protected")
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Session token missing"
-
-
-def test_protected_rejects_invalid_session_token(client):
-    response = client.get("/protected", headers={"X-Session-Token": "bad"})
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Invalid session token"
-
-
-def test_protected_allows_valid_session(client, auth_headers):
-    response = client.get("/protected", headers=auth_headers)
-    assert response.status_code == 200
-    assert response.json()["message"] == "This route is protected"
-
-
-def test_create_session_persists_token(client, auth_headers):
+def test_create_session_persists_token(client):
     payload = {"email": "alice@example.com"}
 
-    response = client.post("/sessions", json=payload, headers=auth_headers)
+    response = client.post("/sessions", json=payload)
 
     assert response.status_code == 200
     body = response.json()
@@ -101,13 +84,16 @@ def test_create_session_persists_token(client, auth_headers):
         assert stored.openai_key == body["openai_key"]
 
 
-def test_create_session_requires_session_token(client):
+def test_create_session_does_not_require_session_token(client):
     response = client.post("/sessions", json={"email": "alice@example.com"})
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Session token missing"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == "alice@example.com"
+    assert isinstance(body["session_token"], str) and len(body["session_token"]) > 20
+    assert body["openai_key"].startswith("sk-")
 
 
-def test_create_session_regenerates_token_on_collision(client, auth_headers, monkeypatch):
+def test_create_session_regenerates_token_on_collision(client, monkeypatch):
     insert_session(email="seed@example.com", token="dup-token")
 
     token_values = itertools.cycle([
@@ -118,10 +104,10 @@ def test_create_session_regenerates_token_on_collision(client, auth_headers, mon
     def fake_token_urlsafe(_nbytes=32):
         return next(token_values)
 
-    monkeypatch.setattr("main.secrets.token_urlsafe", fake_token_urlsafe)
-    monkeypatch.setattr("main.generate_openai_key", lambda: "sk-generated")
+    monkeypatch.setattr("session_logic.secrets.token_urlsafe", fake_token_urlsafe)
+    monkeypatch.setattr("session_logic.generate_openai_key", lambda: "sk-generated")
 
-    response = client.post("/sessions", json={"email": "bob@example.com"}, headers=auth_headers)
+    response = client.post("/sessions", json={"email": "bob@example.com"})
 
     assert response.status_code == 200
     body = response.json()

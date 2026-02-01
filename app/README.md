@@ -31,6 +31,9 @@ This spins up:
 # Rebuild after dependency changes
 docker compose build
 
+# Run backend + frontend tests in Docker
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+
 # Stop services
 docker compose down
 ```

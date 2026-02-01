@@ -6,14 +6,8 @@ import type {
   CreateSessionResponse,
   HealthResponse,
   LogoutResponse,
+  UserResponse,
 } from "./types";
-
-export function useHealthQuery() {
-  return useQuery({
-    queryKey: ["health"],
-    queryFn: () => apiRequest<HealthResponse>("/"),
-  });
-}
 
 export function useProtectedStatusQuery(token?: string) {
   return useQuery({
@@ -32,6 +26,15 @@ export function useCreateSessionMutation() {
         method: "POST",
         body: { email, openai_key } satisfies CreateSessionRequest,
       }),
+  });
+}
+
+export function useUserQuery(token?: string) {
+  return useQuery({
+    queryKey: ["user", token],
+    queryFn: () => apiRequest<UserResponse>("/user", { token }),
+    enabled: Boolean(token),
+    retry: false,
   });
 }
 
