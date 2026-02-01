@@ -62,6 +62,10 @@ export default function CreateSessionForm() {
             placeholder="sk-..."
             {...register("openai_key", {
               required: "OpenAI key is required",
+              pattern: {
+                value: /^sk-[A-Za-z0-9-_]+$/,
+                message: "OpenAI key must start with 'sk-'",
+              },
             })}
           />
         </label>
@@ -85,7 +89,7 @@ export default function CreateSessionForm() {
           <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-sm">
             <p className="flex items-center gap-2 text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
-              Session created!
+              Session created and key validated.
             </p>
             <p className="mt-2 text-slate-300">
               <span className="font-semibold">Token:</span> {createSession.data.session_token}

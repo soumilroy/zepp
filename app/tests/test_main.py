@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import httpx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -46,6 +47,28 @@ def prepare_database():
     Base.metadata.drop_all(bind=test_engine)
 
 
+@pytest.fixture(autouse=True)
+def mock_openai_validation(monkeypatch):
+    class FakeResponse:
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+
+    class FakeClient:
+        def __init__(self, status_code: int = 200):
+            self._status_code = status_code
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def get(self, _url, headers=None):
+            return FakeResponse(self._status_code)
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: FakeClient())
+
+
 @pytest.fixture()
 def client():
     return TestClient(app)
@@ -68,7 +91,7 @@ def test_root_endpoint_returns_status(client):
 
 
 def test_create_session_persists_token(client):
-    payload = {"email": "alice@example.com"}
+    payload = {"email": "alice@example.com", "openai_key": "sk-test-alice"}
 
     response = client.post("/sessions", json=payload)
 
@@ -85,7 +108,9 @@ def test_create_session_persists_token(client):
 
 
 def test_create_session_does_not_require_session_token(client):
-    response = client.post("/sessions", json={"email": "alice@example.com"})
+    response = client.post(
+        "/sessions", json={"email": "alice@example.com", "openai_key": "sk-test-alice"}
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["email"] == "alice@example.com"
@@ -105,16 +130,54 @@ def test_create_session_regenerates_token_on_collision(client, monkeypatch):
         return next(token_values)
 
     monkeypatch.setattr("session_logic.secrets.token_urlsafe", fake_token_urlsafe)
-    monkeypatch.setattr("session_logic.generate_openai_key", lambda: "sk-generated")
-
-    response = client.post("/sessions", json={"email": "bob@example.com"})
+    response = client.post(
+        "/sessions",
+        json={"email": "bob@example.com", "openai_key": "sk-test-bob"},
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["session_token"] == "unique-token"
-    assert body["openai_key"] == "sk-generated"
+    assert body["openai_key"] == "sk-test-bob"
 
     with TestingSessionLocal() as db:
         assert db.query(UserSession).filter_by(session_token="dup-token").count() == 1
         assert db.query(UserSession).filter_by(session_token="unique-token").count() == 1
-        assert db.query(UserSession).filter_by(openai_key="sk-generated").count() == 1
+        assert db.query(UserSession).filter_by(openai_key="sk-test-bob").count() == 1
+
+
+def test_create_session_rejects_invalid_openai_key(client):
+    response = client.post(
+        "/sessions",
+        json={"email": "invalid@example.com", "openai_key": "invalid-key"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid OpenAI key. Use a key that starts with 'sk-'."
+
+
+def test_create_session_rejects_unverified_openai_key(client, monkeypatch):
+    class FakeResponse:
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def get(self, _url, headers=None):
+            return FakeResponse(401)
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: FakeClient())
+
+    response = client.post(
+        "/sessions",
+        json={"email": "invalid@example.com", "openai_key": "sk-invalid"},
+    )
+    assert response.status_code == 401
+    assert (
+        response.json()["detail"]
+        == "OpenAI key could not be validated. Check that the key is active."
+    )

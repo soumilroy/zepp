@@ -31,6 +31,22 @@ describe("CreateSessionForm", () => {
     expect(screen.getByText("OpenAI key is required")).toBeInTheDocument();
   });
 
+  it("shows validation error for invalid OpenAI key", async () => {
+    const user = userEvent.setup();
+    const client = createQueryClient();
+    const wrapper = createQueryWrapper(client);
+
+    render(<CreateSessionForm />, { wrapper });
+
+    await user.type(screen.getByLabelText("Email"), "user@example.com");
+    await user.type(screen.getByLabelText("OpenAI key"), "invalid-key");
+    await user.click(screen.getByRole("button", { name: /create session/i }));
+
+    expect(
+      screen.getByText("OpenAI key must start with 'sk-'")
+    ).toBeInTheDocument();
+  });
+
   it("submits and shows session details", async () => {
     const user = userEvent.setup();
     const response: CreateSessionResponse = {
@@ -49,7 +65,9 @@ describe("CreateSessionForm", () => {
     await user.type(screen.getByLabelText("OpenAI key"), "sk-test");
     await user.click(screen.getByRole("button", { name: /create session/i }));
 
-    await waitFor(() => expect(screen.getByText("Session created!")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Session created and key validated.")).toBeInTheDocument()
+    );
     expect(screen.getByText(/token-123/i)).toBeInTheDocument();
     expect(apiRequestMock).toHaveBeenCalledWith("/sessions", {
       method: "POST",

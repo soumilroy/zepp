@@ -25,7 +25,16 @@ export async function apiRequest<TResponse>(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || `Request failed with status ${response.status}`);
+    let message = errorText;
+    try {
+      const parsed = JSON.parse(errorText) as { detail?: string };
+      if (parsed?.detail) {
+        message = parsed.detail;
+      }
+    } catch {
+      // Fall back to raw text.
+    }
+    throw new Error(message || `Request failed with status ${response.status}`);
   }
 
   return (await response.json()) as TResponse;
