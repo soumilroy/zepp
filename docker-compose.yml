@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    working_dir: /workspace/app
+    volumes:
+      - ./app:/workspace/app
+    environment:
+      - PYTHONPATH=/workspace/app
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    working_dir: /usr/src/app
+    volumes:
+      - ./web:/usr/src/app
+      - frontend_node_modules:/usr/src/app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  frontend_node_modules:
