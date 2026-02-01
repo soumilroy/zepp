@@ -9,7 +9,10 @@ test("creates a session and enables logout", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ session_token: "token-123", openai_key: "sk-test" }),
+      body: JSON.stringify({
+        session_token: "token-123",
+        openai_key: "sk-test",
+      }),
     });
   });
 
@@ -27,7 +30,6 @@ test("creates a session and enables logout", async ({ page }) => {
   await page.getByLabel("OpenAI key").fill("sk-test");
   await page.getByRole("button", { name: /create session/i }).click();
 
-  await expect(page.getByText("Connect your session")).toBeHidden();
   const logoutButton = page.getByRole("button", { name: "Logout" });
   await expect(logoutButton).toBeEnabled();
 

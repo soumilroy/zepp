@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, KeyRound, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { useCreateSessionMutation } from "../api/hooks";
+import BrandMark from "./BrandMark";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -67,14 +68,11 @@ export default function SessionGateModal({
     >
       <DialogContent className="[&>button]:hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-300" />
-            Connect your session
-          </DialogTitle>
-          <DialogDescription>
-            Enter your email and OpenAI key to start a session.
-          </DialogDescription>
+          <BrandMark />
         </DialogHeader>
+        <p className="text-sm text-slate-400 my-2">
+          Enter your email and OpenAI key to start a session
+        </p>
         <form
           className="flex flex-col gap-4"
           onSubmit={handleSubmit((values) => {
@@ -119,6 +117,10 @@ export default function SessionGateModal({
               placeholder="sk-..."
               {...register("openai_key", {
                 required: "OpenAI key is required",
+                pattern: {
+                  value: /^sk-[A-Za-z0-9-_]+$/,
+                  message: "OpenAI key must start with 'sk-'",
+                },
               })}
             />
           </label>
@@ -127,7 +129,7 @@ export default function SessionGateModal({
           )}
 
           <Button type="submit" className="gap-2" disabled={createSession.isPending}>
-            <Sparkles className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4" />
             {createSession.isPending ? "Creating session..." : "Create session"}
           </Button>
 
