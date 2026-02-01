@@ -9,7 +9,8 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from main import Base, UserSession, app, get_db
+from main import app
+from session_logic import Base, UserSession, get_db
 
 TEST_DATABASE_URL = "sqlite:///./test_app.db"
 
@@ -103,8 +104,8 @@ def test_create_session_regenerates_token_on_collision(client, monkeypatch):
     def fake_token_urlsafe(_nbytes=32):
         return next(token_values)
 
-    monkeypatch.setattr("main.secrets.token_urlsafe", fake_token_urlsafe)
-    monkeypatch.setattr("main.generate_openai_key", lambda: "sk-generated")
+    monkeypatch.setattr("session_logic.secrets.token_urlsafe", fake_token_urlsafe)
+    monkeypatch.setattr("session_logic.generate_openai_key", lambda: "sk-generated")
 
     response = client.post("/sessions", json={"email": "bob@example.com"})
 
