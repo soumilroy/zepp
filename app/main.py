@@ -19,6 +19,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
     ],
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +45,7 @@ class UserSession(Base):
 
 class SessionCreate(BaseModel):
     email: str
+    openai_key: str
 
 
 class SessionResponse(BaseModel):
@@ -67,14 +69,14 @@ def require_session_token(
     if session_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session token missing",
+            detail="Invalid session",
         )
 
     session = db.query(UserSession).filter(UserSession.session_token == session_token).first()
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid session token",
+            detail="Invalid session",
         )
     return session
 
@@ -84,38 +86,38 @@ async def health_check():
     """Health check route"""
     return {"status": "success", "message": "Zepp.ai API is running"}
 
-@app.get("/protected", dependencies=[Depends(require_session_token)])
+@app.get("/session-status-check", dependencies=[Depends(require_session_token)])
 async def protected():
-    """Protected route"""
-    return {"status": "success", "message": "This route is protected"}
-
-def generate_openai_key() -> str:
-    return f"sk-{secrets.token_urlsafe(32)}"
-
+    """Session status check route"""
+    return {"status": "success", "message": "Session is valid"}
 
 @app.post(
     "/sessions",
     response_model=SessionResponse,
-    dependencies=[Depends(require_session_token)],
 )
 async def create_session(payload: SessionCreate, db: DBSession = Depends(get_db)):
     """Create a new session token for the given email"""
     token = secrets.token_urlsafe(32)
-    openai_key = generate_openai_key()
 
     while (
         db.query(UserSession).filter(UserSession.session_token == token).first()
         is not None
     ):
         token = secrets.token_urlsafe(32)
-
-    while (
-        db.query(UserSession).filter(UserSession.openai_key == openai_key).first()
+    if (
+        db.query(UserSession).filter(UserSession.openai_key == payload.openai_key).first()
         is not None
     ):
-        openai_key = generate_openai_key()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="OpenAI key already in use",
+        )
 
-    session_entry = UserSession(email=payload.email, session_token=token, openai_key=openai_key)
+    session_entry = UserSession(
+        email=payload.email,
+        session_token=token,
+        openai_key=payload.openai_key,
+    )
     db.add(session_entry)
     db.commit()
     db.refresh(session_entry)
