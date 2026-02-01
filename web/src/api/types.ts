@@ -18,3 +18,7 @@ export interface LogoutResponse {
   status: string;
   message: string;
 }
+
+export interface UserResponse {
+  email: string;
+}

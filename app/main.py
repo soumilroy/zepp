@@ -54,6 +54,10 @@ class SessionResponse(BaseModel):
     openai_key: str
 
 
+class UserResponse(BaseModel):
+    email: str
+
+
 def get_db() -> DBSession:
     db = SessionLocal()
     try:
@@ -81,15 +85,15 @@ def require_session_token(
     return session
 
 
-@app.get("/")
-async def health_check():
-    """Health check route"""
-    return {"status": "success", "message": "Zepp.ai API is running"}
-
 @app.get("/session-status-check", dependencies=[Depends(require_session_token)])
 async def protected():
     """Session status check route"""
     return {"status": "success", "message": "Session is valid"}
+
+@app.get("/user", response_model=UserResponse)
+async def get_user(session: UserSession = Depends(require_session_token)):
+    """Return the active session user's email."""
+    return UserResponse(email=session.email)
 
 @app.post(
     "/sessions",
