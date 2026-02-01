@@ -3,6 +3,7 @@ import {
   useForm,
   useFieldArray,
   useWatch,
+  Controller,
   type Control,
   type UseFormRegister,
 } from "react-hook-form";
@@ -23,10 +24,19 @@ import {
   User,
   Users,
   Wrench,
+  Info,
   type LucideIcon,
 } from "lucide-react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 import AppHeader from "../components/AppHeader";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 
 const resumeStructure = [
   {
@@ -38,46 +48,57 @@ const resumeStructure = [
       {
         label: "First Name",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Last Name",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Email",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Phone",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Address",
         type: "text",
+        width: "full",
       },
       {
         label: "City",
         type: "text",
+        width: "1/2",
       },
       {
         label: "State",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Zip Code",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Country",
         type: "text",
+        width: "1/2",
       },
       {
         label: "LinkedIn",
         type: "text",
+        width: "1/2",
       },
       {
         label: "GitHub",
         type: "text",
+        width: "1/2",
       },
     ],
   },
@@ -90,34 +111,45 @@ const resumeStructure = [
       {
         label: "School",
         type: "text",
+        width: "full",
       },
       {
         label: "Degree",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Field of Study",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Start Date",
         type: "date",
+        width: "1/4",
       },
       {
         label: "End Date",
         type: "date",
+        width: "1/4",
       },
-      {
-        label: "Description",
-        type: "text",
-      },
+
       {
         label: "Grade",
         type: "number",
+        width: "1/4",
       },
       {
         label: "GPA",
         type: "number",
+        width: "1/4",
+      },
+      {
+        label: "Description",
+        type: "text",
+        editor: "quill",
+        fullWidth: true,
+        width: "full",
       },
     ],
   },
@@ -130,30 +162,39 @@ const resumeStructure = [
       {
         label: "Company",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Position",
         type: "text",
+        width: "1/2",
       },
       {
         label: "Start Date",
         type: "date",
+        width: "1/2",
       },
       {
         label: "End Date",
         type: "date",
+        width: "1/2",
       },
       {
         label: "Description",
         type: "text",
+        editor: "quill",
+        fullWidth: true,
+        width: "full",
       },
       {
         label: "Responsibilities",
         type: "text",
+        width: "full",
       },
       {
         label: "Skills",
         type: "text",
+        width: "full",
       },
     ],
   },
@@ -166,6 +207,7 @@ const resumeStructure = [
       {
         label: "Skill",
         type: "text",
+        width: "full",
       },
     ],
   },
@@ -178,6 +220,14 @@ const resumeStructure = [
       {
         label: "Project Name",
         type: "text",
+        width: "1/2",
+      },
+      {
+        label: "Description",
+        type: "text",
+        editor: "quill",
+        fullWidth: true,
+        width: "full",
       },
     ],
   },
@@ -190,6 +240,7 @@ const resumeStructure = [
       {
         label: "Reference Name",
         type: "text",
+        width: "full",
       },
     ],
   },
@@ -202,6 +253,7 @@ const resumeStructure = [
       {
         label: "Certification Name",
         type: "text",
+        width: "full",
       },
     ],
   },
@@ -214,6 +266,7 @@ const resumeStructure = [
       {
         label: "Language",
         type: "text",
+        width: "1/2",
       },
     ],
   },
@@ -226,6 +279,7 @@ const resumeStructure = [
       {
         label: "Interest",
         type: "text",
+        width: "1/2",
       },
     ],
   },
@@ -237,6 +291,9 @@ type ResumeField = {
   key: string;
   label: string;
   type: string;
+  editor?: "quill";
+  fullWidth?: boolean;
+  width?: "full" | "1/2" | "1/3" | "1/4";
 };
 
 type ResumeSection = {
@@ -273,6 +330,15 @@ const resumeSections: ResumeSection[] = resumeStructure.map((section) => ({
     key: toKey(field.label),
     label: field.label,
     type: field.type,
+    editor: field.editor === "quill" ? "quill" : undefined,
+    fullWidth: field.fullWidth === true,
+    width:
+      field.width === "1/2" ||
+        field.width === "1/3" ||
+        field.width === "1/4" ||
+        field.width === "full"
+        ? field.width
+        : undefined,
   })),
 }));
 
@@ -424,21 +490,47 @@ function DraggableEntry({
         className={`transition-[max-height] duration-300 ease-in-out ${isExpanded ? "max-h-[1200px]" : "max-h-0"
           } overflow-hidden`}
       >
-        <div className="grid gap-3 border-t border-slate-800 px-4 py-4 md:grid-cols-2">
+        <div className="grid gap-3 border-t border-slate-800 px-4 py-4 md:grid-cols-12">
           {section.fields.map((fieldDef) => (
             <label
               key={fieldDef.key}
-              className="flex flex-col gap-2 text-sm text-slate-200"
+              className={`flex flex-col gap-2 text-sm text-slate-200 ${fieldDef.fullWidth
+                ? "md:col-span-12"
+                : fieldDef.width === "1/4"
+                  ? "md:col-span-3"
+                  : fieldDef.width === "1/3"
+                    ? "md:col-span-4"
+                    : fieldDef.width === "1/2"
+                      ? "md:col-span-6"
+                      : "md:col-span-12"
+                }`}
             >
               <span>{fieldDef.label}</span>
-              <input
-                type={fieldDef.type}
-                className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
-                placeholder={fieldDef.label}
-                {...register(
-                  `sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`,
-                )}
-              />
+              {fieldDef.editor === "quill" ? (
+                <Controller
+                  control={control}
+                  name={`sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`}
+                  render={({ field }) => (
+                    <div className="resume-quill rounded-md border border-slate-700 bg-slate-950 text-slate-100">
+                      <ReactQuill
+                        theme="snow"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder={fieldDef.label}
+                      />
+                    </div>
+                  )}
+                />
+              ) : (
+                <input
+                  type={fieldDef.type}
+                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  placeholder={fieldDef.label}
+                  {...register(
+                    `sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`,
+                  )}
+                />
+              )}
             </label>
           ))}
         </div>
@@ -532,7 +624,7 @@ function SectionEntries({ section, sectionIndex, control, register }: SectionEnt
         >
           <span className="inline-flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Add {section.title}+
+            Add {section.title}
           </span>
         </button>
       </div>
@@ -561,6 +653,18 @@ function SectionCard({ section, index, control, register }: SectionCardProps) {
       languages: "text-indigo-200",
       interests: "text-fuchsia-200",
     }[section.key] ?? "text-slate-100";
+  const pillBorderTone =
+    {
+      "personal-information": "border-sky-700/30",
+      education: "border-emerald-700/30",
+      "work-experience": "border-amber-700/30",
+      skills: "border-violet-700/30",
+      projects: "border-cyan-700/30",
+      references: "border-rose-700/30",
+      certifications: "border-lime-700/30",
+      languages: "border-indigo-700/30",
+      interests: "border-fuchsia-700/30",
+    }[section.key] ?? "border-slate-800/30";
 
   return (
     <div
@@ -568,13 +672,23 @@ function SectionCard({ section, index, control, register }: SectionCardProps) {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/60 px-2 py-1.5">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/80">
-              <Icon className="h-4.5 w-4.5 text-slate-200" />
-            </span>
-            <h3 className={`text-sm font-semibold ${titleTone}`}>{section.title}</h3>
-          </div>
-          <p className="mt-2 text-sm text-slate-400">{section.description}</p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`inline-flex items-center gap-2 rounded-full border bg-slate-800/70 pl-1 pr-3 py-1 ${pillBorderTone}`}
+                  aria-label={`${section.title} description`}
+                >
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-700/80">
+                    <Icon className="h-4 w-4 text-slate-200" />
+                  </span>
+                  <h3 className={`text-sm font-semibold ${titleTone}`}>{section.title}</h3>
+                  <Info className="h-4 w-4 text-slate-400" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>{section.description}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
       <SectionEntries
@@ -615,10 +729,20 @@ export default function HomePage() {
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <AppHeader />
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">Resume editor</h2>
-          <p className="text-sm text-slate-400">Draft and refine your resume content.</p>
-        </div>
+        <header className="flex flex-col gap-3 rounded-2xl border border-slate-800/70 bg-gradient-to-br from-slate-900/70 via-slate-950/80 to-slate-950/30 p-6 shadow-sm">
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-xs font-medium text-slate-200">
+            Resume Builder
+          </span>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+              Resume editor
+            </h2>
+            <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
+              Draft and refine your resume content with structured sections, rich text
+              descriptions, and quick reordering.
+            </p>
+          </div>
+        </header>
         <DndProvider backend={HTML5Backend}>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             {orderedSections.map(({ id, section }, index) =>
