@@ -124,10 +124,8 @@ def validate_openai_key(openai_key: str) -> str:
 def create_session(payload: SessionCreate, db: DBSession) -> SessionResponse:
     """
     Create (or rotate) a session token for the given OpenAI key.
-
-    If the OpenAI key already has an active session, we rotate the token and
-    allow the user to "log in again" with a new session id.
     """
+    
     normalized_key = validate_openai_key(payload.openai_key)
     token = secrets.token_urlsafe(32)
 
