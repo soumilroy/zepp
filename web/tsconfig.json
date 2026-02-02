@@ -16,8 +16,9 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true,
     "jsx": "react-jsx",
+    "noEmit": true,
     "types": ["vite/client", "vitest/globals"]
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": []
 }
