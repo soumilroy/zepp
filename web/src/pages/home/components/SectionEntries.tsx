@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useFieldArray,
   useWatch,
@@ -7,7 +7,7 @@ import {
 } from "react-hook-form";
 import { Plus } from "lucide-react";
 
-import { buildPrefilledValues, buildSummary } from "../resume";
+import { buildPrefilledValues } from "../resume";
 import type { FormValues, ResumeSection } from "../types";
 import { DraggableEntry } from "./DraggableEntry";
 
@@ -16,6 +16,7 @@ export type SectionEntriesProps = {
   sectionIndex: number;
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
+  onSave: () => void;
 };
 
 export function SectionEntries({
@@ -23,6 +24,7 @@ export function SectionEntries({
   sectionIndex,
   control,
   register,
+  onSave,
 }: SectionEntriesProps) {
   const { fields, append, remove, move } = useFieldArray({
     control,
@@ -36,12 +38,25 @@ export function SectionEntries({
 
   const [isOpen, setIsOpen] = useState(fields.length > 0);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const prevLengthRef = useRef(fields.length);
 
   useEffect(() => {
     if (fields.length > 0 && !isOpen) {
       setIsOpen(true);
     }
   }, [fields.length, isOpen]);
+
+  useEffect(() => {
+    if (fields.length > prevLengthRef.current) {
+      const newestId = fields[fields.length - 1]?.id;
+      if (newestId) {
+        setExpandedIds((prev) =>
+          prev.includes(newestId) ? prev : [...prev, newestId],
+        );
+      }
+    }
+    prevLengthRef.current = fields.length;
+  }, [fields]);
 
   const isSingleEntry = section.entryType === "single";
   const isAddDisabled = isSingleEntry && fields.length > 0;
@@ -62,9 +77,8 @@ export function SectionEntries({
     <div className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-3" />
       <div
-        className={`transition-[max-height] duration-300 ease-in-out ${
-          isOpen ? "mt-4 max-h-[2000px]" : "mt-0 max-h-0"
-        } overflow-hidden`}
+        className={`transition-[max-height] duration-300 ease-in-out ${isOpen ? "mt-4 max-h-[2000px]" : "mt-0 max-h-0"
+          } overflow-hidden`}
       >
         <div className="flex flex-col gap-3">
           {fields.length === 0 ? (
@@ -72,7 +86,6 @@ export function SectionEntries({
           ) : (
             fields.map((field, itemIndex) => {
               const isExpanded = expandedIds.includes(field.id);
-              const summary = buildSummary(section, watchedItems[itemIndex]?.values);
               const primaryKey = section.fields[0]?.key;
               const primaryValue = primaryKey
                 ? watchedItems[itemIndex]?.values?.[primaryKey]?.trim()
@@ -87,8 +100,8 @@ export function SectionEntries({
                   sectionIndex={sectionIndex}
                   control={control}
                   register={register}
+                  onSave={onSave}
                   entryTitle={entryTitle}
-                  summary={summary}
                   isExpanded={isExpanded}
                   enableDrag={!isSingleEntry}
                   allowDelete
@@ -105,11 +118,10 @@ export function SectionEntries({
         <button
           type="button"
           onClick={handleAdd}
-          className={`rounded-md border border-dashed border-slate-600 px-3 py-1.5 text-sm text-slate-200 ${
-            isAddDisabled
-              ? "cursor-not-allowed opacity-50"
-              : "hover:border-slate-400"
-          }`}
+          className={`rounded-md border border-dashed border-slate-600 px-3 py-1.5 text-sm text-slate-200 ${isAddDisabled
+            ? "cursor-not-allowed opacity-50"
+            : "hover:border-slate-400"
+            }`}
           disabled={isAddDisabled}
         >
           <span className="inline-flex items-center gap-2">

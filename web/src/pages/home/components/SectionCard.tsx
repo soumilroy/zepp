@@ -15,9 +15,16 @@ export type SectionCardProps = {
   index: number;
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
+  onSave: () => void;
 };
 
-export function SectionCard({ section, index, control, register }: SectionCardProps) {
+export function SectionCard({
+  section,
+  index,
+  control,
+  register,
+  onSave,
+}: SectionCardProps) {
   const Icon = section.icon;
 
   const titleTone =
@@ -48,9 +55,8 @@ export function SectionCard({ section, index, control, register }: SectionCardPr
 
   return (
     <div
-      className={`flex flex-col gap-2 ${
-        index === 0 ? "" : "border-t border-slate-800/70 pt-6"
-      }`}
+      className={`flex flex-col gap-2 ${index === 0 ? "" : "border-t border-slate-800/70 pt-6"
+        }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -80,6 +86,7 @@ export function SectionCard({ section, index, control, register }: SectionCardPr
         sectionIndex={index}
         control={control}
         register={register}
+        onSave={onSave}
       />
     </div>
   );
