@@ -1,8 +1,14 @@
 import { ChevronDown, ChevronUp, GripVertical, Save, Trash2 } from "lucide-react";
 import { useEntryDnD } from "../dnd/useEntryDnD";
-import { Controller, type Control, type UseFormRegister } from "react-hook-form";
+import {
+  Controller,
+  useWatch,
+  type Control,
+  type UseFormRegister,
+} from "react-hook-form";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { toast } from "sonner";
 
 import { quillFormats, quillModules } from "../quill";
 import type { FormValues, ResumeSection } from "../types";
@@ -22,6 +28,13 @@ export type DraggableEntryProps = {
   onToggle: (id: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+};
+
+const REQUIRED_FIELDS_BY_SECTION: Record<string, string[]> = {
+  "Personal Information": ["First Name", "Email", "Phone"],
+  Education: ["School"],
+  "Work Experience": ["Company", "Position"],
+  Portfolio: ["Title"],
 };
 
 export function DraggableEntry({
@@ -46,6 +59,40 @@ export function DraggableEntry({
     enableDrag,
     onMove,
   });
+  const entryValues =
+    useWatch({
+      control,
+      name: `sections.${sectionIndex}.items.${entryIndex}.values`,
+    }) ?? {};
+
+  const handleSave = () => {
+    const requiredLabels = REQUIRED_FIELDS_BY_SECTION[section.title] ?? [];
+    if (requiredLabels.length === 0) {
+      onSave();
+      return;
+    }
+
+    const requiredKeys = section.fields
+      .filter((field) => requiredLabels.includes(field.label))
+      .map((field) => field.key);
+    const missingLabels = requiredKeys
+      .filter((key) => !entryValues?.[key]?.trim())
+      .map(
+        (key) => section.fields.find((field) => field.key === key)?.label ?? key,
+      );
+
+    if (missingLabels.length > 0) {
+      if (!isExpanded) {
+        onToggle(entryId);
+      }
+      toast.error(
+        `Please fill required fields: ${missingLabels.join(", ")}.`,
+      );
+      return;
+    }
+
+    onSave();
+  };
 
   return (
     <div
@@ -69,7 +116,7 @@ export function DraggableEntry({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onSave}
+            onClick={handleSave}
             className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-1 text-xs text-emerald-100 hover:bg-emerald-500/25"
           >
             <Save className="h-3 w-3" />

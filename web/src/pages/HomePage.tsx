@@ -60,14 +60,6 @@ export default function HomePage() {
                     />
                   ) : null,
                 )}
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950"
-                  >
-                    Save resume
-                  </button>
-                </div>
               </form>
             </DndProvider>
           </div>
