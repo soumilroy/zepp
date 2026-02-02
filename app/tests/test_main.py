@@ -181,3 +181,40 @@ def test_create_session_rejects_unverified_openai_key(client, monkeypatch):
         response.json()["detail"]
         == "OpenAI key could not be validated. Check that the key is active."
     )
+
+
+def test_create_session_allows_relogin_with_new_session_id_for_same_openai_key(
+    client, monkeypatch
+):
+    insert_session(
+        email="alice@example.com",
+        token="old-token",
+        openai_key="sk-test-alice",
+    )
+
+    monkeypatch.setattr(
+        "session_logic.secrets.token_urlsafe", lambda _nbytes=32: "new-token"
+    )
+
+    response = client.post(
+        "/sessions",
+        json={"email": "alice+new@example.com", "openai_key": "sk-test-alice"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == "alice+new@example.com"
+    assert body["openai_key"] == "sk-test-alice"
+    assert body["session_token"] == "new-token"
+
+    # DB should still have a single row for the key, with the token rotated.
+    with TestingSessionLocal() as db:
+        assert db.query(UserSession).filter_by(openai_key="sk-test-alice").count() == 1
+        assert db.query(UserSession).filter_by(session_token="old-token").count() == 0
+        assert db.query(UserSession).filter_by(session_token="new-token").count() == 1
+        stored = db.query(UserSession).filter_by(openai_key="sk-test-alice").one()
+        assert stored.email == "alice+new@example.com"
+
+    # Old token should no longer authorize requests.
+    old_user_response = client.get("/user", headers={"X-Session-Token": "old-token"})
+    assert old_user_response.status_code == 401

@@ -53,3 +53,18 @@
   color: rgb(148 163 184);
   font-style: normal;
 }
+
+/* Quill content should display nicely when shown outside the editor (e.g. entry summaries). */
+.entry-summary-html p {
+  margin: 0;
+}
+
+.entry-summary-html ul,
+.entry-summary-html ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.entry-summary-html li {
+  margin: 0;
+}
