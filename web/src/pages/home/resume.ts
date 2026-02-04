@@ -44,10 +44,6 @@ export const buildPrefilledValues = (section: ResumeSection) => {
   const values: Record<string, string> = Object.fromEntries(
     section.fields.map((field) => [field.key, ""]),
   );
-  const firstField = section.fields.find((field) => field.type === "text");
-  if (firstField) {
-    values[firstField.key] = `New ${section.title}`;
-  }
   return values;
 };
 
