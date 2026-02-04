@@ -7,6 +7,7 @@ export default defineConfig({
     port: 5173,
     host: "0.0.0.0",
   },
+  // @ts-expect-error - Vitest extends Vite config with `test`, but our config is typed as Vite's `UserConfig`.
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

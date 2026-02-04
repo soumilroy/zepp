@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
     "preview": "vite preview",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -19,6 +20,7 @@
     "@tanstack/react-query": "^5.36.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.3.1",
     "lucide-react": "^0.563.0",
     "react": "^18.2.0",
     "react-dnd": "^16.0.1",
@@ -27,6 +29,7 @@
     "react-hook-form": "^7.71.1",
     "react-quill": "^2.0.0",
     "react-router-dom": "^7.13.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7"
   },

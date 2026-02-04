@@ -74,22 +74,22 @@ def generate_openai_key() -> str:
     return f"sk-{secrets.token_urlsafe(32)}"
 
 
-def validate_openai_key(openai_key: str, db: DBSession) -> None:
+def validate_openai_key(openai_key: str) -> str:
+    """
+    Validate the provided OpenAI key and return a normalized (trimmed) key.
+
+    Note: We intentionally do NOT reject keys that already exist in our DB; we
+    support "re-login" by rotating the session token for that key.
+    """
     normalized_key = openai_key.strip()
-    if not normalized_key or not normalized_key.startswith("sk-") or len(normalized_key) < 6:
+    if (
+        not normalized_key
+        or not normalized_key.startswith("sk-")
+        or len(normalized_key) < 6
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OpenAI key. Use a key that starts with 'sk-'.",
-        )
-    if (
-        db.query(UserSession)
-        .filter(UserSession.openai_key == normalized_key)
-        .first()
-        is not None
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="OpenAI key already has an active session.",
         )
     try:
         with httpx.Client(timeout=5.0) as client:
@@ -104,7 +104,7 @@ def validate_openai_key(openai_key: str, db: DBSession) -> None:
         ) from exc
 
     if response.status_code == 200:
-        return
+        return normalized_key
     if response.status_code in (401, 403):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -122,8 +122,11 @@ def validate_openai_key(openai_key: str, db: DBSession) -> None:
 
 
 def create_session(payload: SessionCreate, db: DBSession) -> SessionResponse:
-    """Create a new session token for the given email."""
-    validate_openai_key(payload.openai_key, db)
+    """
+    Create (or rotate) a session token for the given OpenAI key.
+    """
+    
+    normalized_key = validate_openai_key(payload.openai_key)
     token = secrets.token_urlsafe(32)
 
     while (
@@ -132,12 +135,22 @@ def create_session(payload: SessionCreate, db: DBSession) -> SessionResponse:
     ):
         token = secrets.token_urlsafe(32)
 
-    session_entry = UserSession(
-        email=payload.email,
-        session_token=token,
-        openai_key=payload.openai_key.strip(),
+    session_entry = (
+        db.query(UserSession).filter(UserSession.openai_key == normalized_key).first()
     )
-    db.add(session_entry)
+
+    if session_entry is None:
+        session_entry = UserSession(
+            email=payload.email,
+            session_token=token,
+            openai_key=normalized_key,
+        )
+        db.add(session_entry)
+    else:
+        # Rotate session token for the existing key (invalidate the old token).
+        session_entry.email = payload.email
+        session_entry.session_token = token
+
     db.commit()
     db.refresh(session_entry)
     return SessionResponse(
