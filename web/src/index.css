@@ -4,6 +4,10 @@
 
 :root {
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+html.dark {
   color-scheme: dark;
 }
 
@@ -13,33 +17,33 @@
 
 .resume-quill .ql-toolbar {
   border: 0;
-  border-bottom: 1px solid rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+  border-bottom: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
 }
 
 .resume-quill .ql-toolbar .ql-stroke {
-  stroke: rgb(226 232 240);
+  stroke: rgb(15 23 42);
 }
 
 .resume-quill .ql-toolbar .ql-fill {
-  fill: rgb(226 232 240);
+  fill: rgb(15 23 42);
 }
 
 .resume-quill .ql-toolbar .ql-picker {
-  color: rgb(226 232 240);
+  color: rgb(15 23 42);
 }
 
 .resume-quill .ql-toolbar .ql-picker-options {
-  background: rgb(2 6 23);
-  border-color: rgb(51 65 85);
-  color: rgb(226 232 240);
+  background: rgb(255 255 255);
+  border-color: rgb(226 232 240);
+  color: rgb(15 23 42);
 }
 
 .resume-quill .ql-container {
   border: 0;
   background: transparent;
-  color: rgb(226 232 240);
+  color: rgb(15 23 42);
   min-height: 140px;
   font-size: 0.9rem;
 }
@@ -50,8 +54,40 @@
 }
 
 .resume-quill .ql-editor.ql-blank::before {
-  color: rgb(148 163 184);
+  color: rgb(100 116 139);
   font-style: normal;
+}
+
+html.dark .resume-quill .ql-toolbar {
+  border-bottom: 1px solid rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-toolbar .ql-stroke {
+  stroke: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-toolbar .ql-fill {
+  fill: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-toolbar .ql-picker {
+  color: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-toolbar .ql-picker-options {
+  background: rgb(2 6 23);
+  border-color: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-container {
+  color: rgb(226 232 240);
+}
+
+html.dark .resume-quill .ql-editor.ql-blank::before {
+  color: rgb(148 163 184);
 }
 
 /* Quill content should display nicely when shown outside the editor (e.g. entry summaries). */

@@ -37,15 +37,15 @@ export default function FullScreenLoadingOverlay({
       aria-busy="true"
       tabIndex={-1}
     >
-      <div className="mx-6 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-xl">
+      <div className="mx-6 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-center gap-4">
           <div
-            className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-slate-100"
+            className="h-10 w-10 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900 dark:border-slate-700 dark:border-t-slate-100"
             aria-hidden="true"
           />
           <div className="flex flex-col gap-1">
-            <p className="text-base font-semibold text-slate-50">{title}</p>
-            <p className="text-sm text-slate-400">{message}</p>
+            <p className="text-base font-semibold text-slate-900 dark:text-slate-50">{title}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{message}</p>
           </div>
         </div>
       </div>

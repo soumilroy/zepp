@@ -39,10 +39,10 @@ export default function LogoutConfirmDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="mb-2 flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-slate-300" />
+            <ShieldAlert className="h-4 w-4 text-slate-600 dark:text-slate-300" />
             Log out?
           </DialogTitle>
-          <DialogDescription className="border-t border-slate-800 pt-4 leading-relaxed">
+          <DialogDescription className="border-t border-slate-200 pt-4 leading-relaxed dark:border-slate-800">
             This will delete any saved sessions and data.
           </DialogDescription>
         </DialogHeader>
