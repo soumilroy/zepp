@@ -10,9 +10,18 @@ test("creates a session and enables logout", async ({ page }) => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        email: "user@example.com",
         session_token: "token-123",
         openai_key: "sk-test",
       }),
+    });
+  });
+
+  await page.route("**/user", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ email: "user@example.com" }),
     });
   });
 
@@ -20,7 +29,7 @@ test("creates a session and enables logout", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ message: "ok" }),
+      body: JSON.stringify({ status: "success", message: "ok" }),
     });
   });
 
