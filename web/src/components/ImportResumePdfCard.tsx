@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileUp, FileWarning } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FileText, FileUp, FileWarning, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useImportResumePdfMutation } from "../api/hooks";
@@ -11,6 +11,7 @@ const SESSION_TOKEN_KEY = "session_token";
 
 type Props = {
   onImported: (data: ResumeImportResponse) => void;
+  onProcessingChange?: (processing: boolean) => void;
 };
 
 function formatBytes(bytes: number) {
@@ -30,89 +31,112 @@ function validatePdf(file: File): string | null {
   return null;
 }
 
-export default function ImportResumePdfCard({ onImported }: Props) {
+export default function ImportResumePdfCard({ onImported, onProcessingChange }: Props) {
   const importMutation = useImportResumePdfMutation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  useEffect(() => {
+    onProcessingChange?.(importMutation.isPending);
+  }, [importMutation.isPending, onProcessingChange]);
+
+  const disabled = importMutation.isPending;
+
   return (
-    <aside className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-      <header className="mb-4">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Import</p>
-        <h2 className="text-2xl font-semibold text-white">Import resume PDF</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Upload a PDF (max 10 MB). We’ll parse it into the resume editor fields.
-        </p>
-      </header>
-
-      <div className="flex flex-col gap-4">
-        <label className="text-sm text-slate-300">
-          <span className="flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-slate-400" />
-            PDF file
-          </span>
-          <input
-            className="mt-2 block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-200 hover:file:bg-slate-700"
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setSelectedFile(file);
-              setValidationError(file ? validatePdf(file) : null);
-            }}
-          />
-        </label>
-
-        {selectedFile ? (
-          <p className="text-xs text-slate-400">
-            Selected: <span className="text-slate-200">{selectedFile.name}</span> (
-            {formatBytes(selectedFile.size)})
+    <aside className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900/70 via-slate-950/70 to-slate-950/30 p-6 shadow-sm">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <header className="flex flex-col gap-2">
+          <p className="text-xs font-medium uppercase tracking-[0.35em] text-slate-400">
+            Import
           </p>
-        ) : null}
-
-        {validationError ? (
-          <p className="flex items-start gap-2 rounded-lg border border-rose-900/50 bg-rose-950/30 p-3 text-sm text-rose-200">
-            <FileWarning className="mt-0.5 h-4 w-4" />
-            <span>{validationError}</span>
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+            Import your resume PDF
+          </h2>
+          <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
+            Upload a text-based PDF (max 10 MB). We’ll convert it into editable sections.
           </p>
-        ) : null}
+        </header>
 
-        <Button
-          type="button"
-          className="gap-2"
-          disabled={!selectedFile || Boolean(validationError) || importMutation.isPending}
-          onClick={() => {
-            if (!selectedFile) return;
-            const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-            if (!token) {
-              toast.error("Please create a session first.");
-              return;
-            }
-            const localValidationError = validatePdf(selectedFile);
-            if (localValidationError) {
-              setValidationError(localValidationError);
-              return;
-            }
+        <div className="flex w-full flex-col gap-3 lg:w-[420px]">
+          <label
+            className={`group relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed bg-slate-950/40 px-4 py-5 text-center transition ${disabled
+              ? "cursor-not-allowed border-slate-800 opacity-70"
+              : "border-slate-700 hover:border-slate-500"
+              }`}
+          >
+            <input
+              className="sr-only"
+              type="file"
+              accept="application/pdf,.pdf"
+              disabled={disabled}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setSelectedFile(file);
+                setValidationError(file ? validatePdf(file) : null);
+              }}
+            />
+            <div className="flex items-center gap-2 text-slate-200">
+              <FileText className="h-5 w-5 text-slate-300" />
+              <span className="text-sm font-semibold">
+                {selectedFile ? "Change PDF" : "Choose a PDF"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">PDF only • up to 10 MB</p>
+          </label>
 
-            importMutation.mutate(
-              { token, file: selectedFile },
-              {
-                onSuccess: (data) => {
-                  onImported(data);
-                  toast.success("Imported resume from PDF");
-                },
-                onError: (error) => {
-                  toast.error(error.message);
-                },
+          {selectedFile ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-200">{selectedFile.name}</p>
+                <p className="text-xs text-slate-400">{formatBytes(selectedFile.size)}</p>
+              </div>
+              <FileUp className="h-4 w-4 text-slate-400" aria-hidden="true" />
+            </div>
+          ) : null}
+
+          {validationError ? (
+            <p className="flex items-start gap-2 rounded-xl border border-rose-900/50 bg-rose-950/30 p-3 text-sm text-rose-200">
+              <FileWarning className="mt-0.5 h-4 w-4" />
+              <span>{validationError}</span>
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            className="gap-2"
+            disabled={!selectedFile || Boolean(validationError) || disabled}
+            onClick={() => {
+              if (!selectedFile) return;
+              const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+              if (!token) {
+                toast.error("Please create a session first.");
+                return;
               }
-            );
-          }}
-        >
-          <FileUp className="h-4 w-4" />
-          {importMutation.isPending ? "Importing..." : "Import PDF"}
-        </Button>
+              const localValidationError = validatePdf(selectedFile);
+              if (localValidationError) {
+                setValidationError(localValidationError);
+                return;
+              }
+
+              importMutation.mutate(
+                { token, file: selectedFile },
+                {
+                  onSuccess: (data) => {
+                    onImported(data);
+                    toast.success("Imported resume from PDF");
+                  },
+                  onError: (error) => {
+                    toast.error(error.message);
+                  },
+                }
+              );
+            }}
+          >
+            <Sparkles className="h-4 w-4" />
+            {importMutation.isPending ? "Importing…" : "Import and fill editor"}
+          </Button>
+        </div>
       </div>
     </aside>
   );
 }
-
