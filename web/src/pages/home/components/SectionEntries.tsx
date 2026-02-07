@@ -82,7 +82,7 @@ export function SectionEntries({
       >
         <div className="flex flex-col gap-3">
           {fields.length === 0 ? (
-            <p className="text-sm text-slate-500">No entries yet.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-500">No entries yet.</p>
           ) : (
             fields.map((field, itemIndex) => {
               const isExpanded = expandedIds.includes(field.id);
@@ -118,9 +118,9 @@ export function SectionEntries({
         <button
           type="button"
           onClick={handleAdd}
-          className={`rounded-md border border-dashed border-slate-600 px-3 py-1.5 text-sm text-slate-200 ${isAddDisabled
+          className={`rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm dark:border-slate-600 dark:bg-transparent dark:text-slate-200 ${isAddDisabled
             ? "cursor-not-allowed opacity-50"
-            : "hover:border-slate-400"
+            : "hover:border-slate-400 dark:hover:border-slate-400"
             }`}
           disabled={isAddDisabled}
         >
@@ -133,4 +133,3 @@ export function SectionEntries({
     </div>
   );
 }
-

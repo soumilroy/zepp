@@ -5,6 +5,7 @@ import { useLogoutMutation, useUserQuery } from "../api/hooks";
 import BrandMark from "./BrandMark";
 import LogoutConfirmDialog from "./LogoutConfirmDialog";
 import SessionGateModal from "./SessionGateModal";
+import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
 
 const SESSION_TOKEN_KEY = "session_token";
@@ -50,15 +51,16 @@ export default function AppHeader() {
         onCancel={() => setIsLogoutOpen(false)}
         onConfirm={logoutConfirm}
       />
-      <header className="w-full border-b border-slate-800/80">
+      <header className="w-full border-b border-slate-200/80 bg-white/70 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3">
           <BrandMark />
           <div className="flex flex-wrap items-center gap-3">
             {sessionToken ? (
-              <span className="text-sm text-slate-500 font-medium">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 {userQuery.isLoading ? "Loading user..." : userQuery.data?.email ?? "Unknown user"}
               </span>
             ) : null}
+            <ThemeToggle />
             <Button
               variant="default"
               size="sm"

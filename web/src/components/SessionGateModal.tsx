@@ -70,7 +70,7 @@ export default function SessionGateModal({
         <DialogHeader>
           <BrandMark />
           <DialogTitle className="sr-only">Create a session</DialogTitle>
-          <DialogDescription className="my-2 text-sm text-slate-400">
+          <DialogDescription className="my-2 text-sm text-slate-600 dark:text-slate-400">
             Enter your email and OpenAI key to start a session
           </DialogDescription>
         </DialogHeader>
@@ -87,13 +87,13 @@ export default function SessionGateModal({
             });
           })}
         >
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-slate-700 dark:text-slate-300">
             <span className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-slate-400" />
+              <Mail className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               Email
             </span>
             <input
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
+              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               type="email"
               placeholder="user@example.com"
               {...register("email", {
@@ -105,15 +105,15 @@ export default function SessionGateModal({
               })}
             />
           </label>
-          {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
+          {errors.email && <p className="text-sm text-rose-600 dark:text-red-400">{errors.email.message}</p>}
 
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-slate-700 dark:text-slate-300">
             <span className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-slate-400" />
+              <KeyRound className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               OpenAI key
             </span>
             <input
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
+              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               type="password"
               placeholder="sk-..."
               {...register("openai_key", {
@@ -126,7 +126,7 @@ export default function SessionGateModal({
             />
           </label>
           {errors.openai_key && (
-            <p className="text-sm text-red-400">{errors.openai_key.message}</p>
+            <p className="text-sm text-rose-600 dark:text-red-400">{errors.openai_key.message}</p>
           )}
 
           <Button type="submit" className="gap-2" disabled={createSession.isPending}>
