@@ -218,3 +218,15 @@ def test_create_session_allows_relogin_with_new_session_id_for_same_openai_key(
     # Old token should no longer authorize requests.
     old_user_response = client.get("/user", headers={"X-Session-Token": "old-token"})
     assert old_user_response.status_code == 401
+
+
+def test_session_status_check_requires_token(client):
+    response = client.get("/session-status-check")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Session token missing"
+
+
+def test_session_status_check_returns_success(client, auth_headers):
+    response = client.get("/session-status-check", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json() == {"status": "success", "message": "ok"}
