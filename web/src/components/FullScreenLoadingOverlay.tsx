@@ -1,0 +1,54 @@
+import { useEffect, useRef } from "react";
+
+type Props = {
+  open: boolean;
+  title?: string;
+  message?: string;
+};
+
+export default function FullScreenLoadingOverlay({
+  open,
+  title = "Working…",
+  message = "Uploading and parsing your PDF. Please don’t close this tab.",
+}: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousActive = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    previousActive?.blur();
+    queueMicrotask(() => containerRef.current?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousActive?.focus?.();
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-busy="true"
+      tabIndex={-1}
+    >
+      <div className="mx-6 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-xl">
+        <div className="flex items-center gap-4">
+          <div
+            className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-slate-100"
+            aria-hidden="true"
+          />
+          <div className="flex flex-col gap-1">
+            <p className="text-base font-semibold text-slate-50">{title}</p>
+            <p className="text-sm text-slate-400">{message}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

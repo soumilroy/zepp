@@ -1,7 +1,9 @@
-from fastapi import Depends, FastAPI, Header
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session as DBSession
 
+from pdf_import import MAX_PDF_BYTES, import_resume_from_pdf_bytes
+from resume_models import ResumeFormValues
 from session_logic import (
     SessionCreate,
     SessionResponse,
@@ -44,6 +46,47 @@ async def get_user(session: UserSession = Depends(require_session_token)):
 @app.get("/session-status-check")
 async def session_status_check(_session: UserSession = Depends(require_session_token)):
     return {"status": "success", "message": "ok"}
+
+@app.post("/resume/import/pdf", response_model=ResumeFormValues)
+async def import_resume_pdf(
+    file: UploadFile = File(...),
+    session: UserSession = Depends(require_session_token),
+):
+    filename = (file.filename or "").lower()
+    is_pdf_name = filename.endswith(".pdf")
+    is_pdf_type = file.content_type in ("application/pdf", "application/x-pdf")
+    if not (is_pdf_name or is_pdf_type):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only PDF files are supported.",
+        )
+
+    chunks: list[bytes] = []
+    size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > MAX_PDF_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="PDF file is too large (max 10 MB).",
+            )
+        chunks.append(chunk)
+
+    try:
+        return import_resume_from_pdf_bytes(b"".join(chunks), session.openai_key)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
 
 @app.post(
     "/sessions",
