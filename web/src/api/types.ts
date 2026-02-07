@@ -22,3 +22,12 @@ export interface LogoutResponse {
 export interface UserResponse {
   email: string;
 }
+
+export type ResumeImportResponse = {
+  sections: {
+    sectionKey: string;
+    items: {
+      values: Record<string, string>;
+    }[];
+  }[];
+};

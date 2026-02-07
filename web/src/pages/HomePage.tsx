@@ -5,13 +5,14 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { toast } from "sonner";
 
 import AppHeader from "../components/AppHeader";
+import ImportResumePdfCard from "../components/ImportResumePdfCard";
 import { ResumeBuilderHeader } from "./home/components/ResumeBuilderHeader";
 import { SectionCard } from "./home/components/SectionCard";
 import { defaultValues, resumeSectionMap } from "./home/resume";
 import type { FormValues } from "./home/types";
 
 export default function HomePage() {
-  const { control, handleSubmit, register } = useForm<FormValues>({
+  const { control, handleSubmit, register, reset } = useForm<FormValues>({
     defaultValues,
   });
 
@@ -63,7 +64,13 @@ export default function HomePage() {
               </form>
             </DndProvider>
           </div>
-          <div className="w-full lg:w-[30%]" />
+          <div className="w-full lg:w-[30%]">
+            <ImportResumePdfCard
+              onImported={(data) => {
+                reset(data as unknown as FormValues);
+              }}
+            />
+          </div>
         </div>
       </section>
     </main>

@@ -230,3 +230,116 @@ def test_session_status_check_returns_success(client, auth_headers):
     response = client.get("/session-status-check", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == {"status": "success", "message": "ok"}
+
+
+def test_import_resume_pdf_requires_token(client):
+    response = client.post(
+        "/resume/import/pdf",
+        files={"file": ("resume.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    assert response.status_code == 401
+
+
+def test_import_resume_pdf_rejects_non_pdf(client, auth_headers):
+    response = client.post(
+        "/resume/import/pdf",
+        headers=auth_headers,
+        files={"file": ("resume.txt", b"hello", "text/plain")},
+    )
+    assert response.status_code == 415
+    assert response.json()["detail"] == "Only PDF files are supported."
+
+
+def test_import_resume_pdf_rejects_oversize_pdf(client, auth_headers):
+    too_large = b"0" * (10 * 1024 * 1024 + 1)
+    response = client.post(
+        "/resume/import/pdf",
+        headers=auth_headers,
+        files={"file": ("resume.pdf", too_large, "application/pdf")},
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "PDF file is too large (max 10 MB)."
+
+
+def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypatch):
+    import pdf_import
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+
+    monkeypatch.setattr(
+        pdf_import,
+        "extract_text_from_pdf_bytes",
+        lambda _bytes: (
+            "Alice Smith\nalice@example.com\n"
+            "Experience: Example Corp - Engineer\n"
+            "Education: Example University\n"
+        ),
+    )
+
+    llm_output = build_empty_resume_form_values()
+    personal_values = build_empty_values_for_section("personal-information")
+    personal_values.update(
+        {
+            "first-name": "Alice",
+            "last-name": "Smith",
+            "email": "alice@example.com",
+            "phone": "555-0100",
+        }
+    )
+    llm_output["sections"][0]["items"] = [{"values": personal_values}]
+
+    monkeypatch.setattr(
+        pdf_import,
+        "call_openai_for_resume_json",
+        lambda _key, _text: llm_output,
+    )
+
+    response = client.post(
+        "/resume/import/pdf",
+        headers=auth_headers,
+        files={"file": ("resume.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sections"][0]["sectionKey"] == "personal-information"
+    assert body["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
+
+
+def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_headers, monkeypatch):
+    import pdf_import
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+
+    monkeypatch.setattr(
+        pdf_import,
+        "extract_text_from_pdf_bytes",
+        lambda _bytes: (
+            "Example University\nGPA 3.8\nExperience\n"
+            "Worked on backend systems and shipped features.\n"
+        ),
+    )
+
+    llm_output = build_empty_resume_form_values()
+    education_values = build_empty_values_for_section("education")
+    education_values.update(
+        {
+            "school": "Example University",
+            "gpa": 3.8,  # LLM sometimes emits as a JSON number
+        }
+    )
+    llm_output["sections"][1]["items"] = [{"values": education_values}]
+
+    monkeypatch.setattr(
+        pdf_import,
+        "call_openai_for_resume_json",
+        lambda _key, _text: llm_output,
+    )
+
+    response = client.post(
+        "/resume/import/pdf",
+        headers=auth_headers,
+        files={"file": ("resume.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sections"][1]["items"][0]["values"]["gpa"] == "3.8"

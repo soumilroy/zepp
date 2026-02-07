@@ -1,11 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { apiRequest } from "./client";
+import { apiRequest, apiUpload } from "./client";
 import type {
   CreateSessionRequest,
   CreateSessionResponse,
   HealthResponse,
   LogoutResponse,
+  ResumeImportResponse,
   UserResponse,
 } from "./types";
 
@@ -45,5 +46,15 @@ export function useLogoutMutation() {
         method: "DELETE",
         token,
       }),
+  });
+}
+
+export function useImportResumePdfMutation() {
+  return useMutation<ResumeImportResponse, Error, { token: string; file: File }>({
+    mutationFn: async ({ token, file }) => {
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+      return apiUpload<ResumeImportResponse>("/resume/import/pdf", { formData, token });
+    },
   });
 }
