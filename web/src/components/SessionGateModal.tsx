@@ -69,10 +69,11 @@ export default function SessionGateModal({
       <DialogContent className="[&>button]:hidden">
         <DialogHeader>
           <BrandMark />
+          <DialogTitle className="sr-only">Create a session</DialogTitle>
+          <DialogDescription className="my-2 text-sm text-slate-400">
+            Enter your email and OpenAI key to start a session
+          </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-slate-400 my-2">
-          Enter your email and OpenAI key to start a session
-        </p>
         <form
           className="flex flex-col gap-4"
           onSubmit={handleSubmit((values) => {

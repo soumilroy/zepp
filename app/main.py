@@ -41,6 +41,10 @@ async def get_user(session: UserSession = Depends(require_session_token)):
     """Return the active session user's email."""
     return UserResponse(email=session.email)
 
+@app.get("/session-status-check")
+async def session_status_check(_session: UserSession = Depends(require_session_token)):
+    return {"status": "success", "message": "ok"}
+
 @app.post(
     "/sessions",
     response_model=SessionResponse,

@@ -21,7 +21,7 @@ ROOT_PATH = Path(__file__).resolve().parents[1]
 if str(ROOT_PATH) not in sys.path:
     sys.path.append(str(ROOT_PATH))
 
-from main import Base  # noqa: E402
+from session_logic import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
