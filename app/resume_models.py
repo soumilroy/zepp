@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
@@ -73,6 +74,27 @@ class ResumeFormValues(BaseModel):
                     )
 
         return self
+
+
+class ResumeImportResponse(ResumeFormValues):
+    model_config = ConfigDict(extra="forbid")
+
+    resume_id: str
+
+
+class ResumeListItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resume_id: str
+    created_at: datetime
+    has_content: bool
+    label: str
+
+
+class ResumeListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resumes: list[ResumeListItem]
 
 
 def _coerce_scalar_to_string(value: Any) -> str:

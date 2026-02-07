@@ -4,10 +4,10 @@ import { toast } from "sonner";
 
 import { useImportResumePdfMutation } from "../api/hooks";
 import type { ResumeImportResponse } from "../api/types";
+import { getSessionToken } from "../lib/sessionToken";
 import { Button } from "./ui/button";
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
-const SESSION_TOKEN_KEY = "session_token";
 
 type Props = {
   onImported: (data: ResumeImportResponse) => void;
@@ -107,7 +107,7 @@ export default function ImportResumePdfCard({ onImported, onProcessingChange }: 
             disabled={!selectedFile || Boolean(validationError) || disabled}
             onClick={() => {
               if (!selectedFile) return;
-              const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+              const token = getSessionToken();
               if (!token) {
                 toast.error("Please create a session first.");
                 return;
@@ -122,6 +122,7 @@ export default function ImportResumePdfCard({ onImported, onProcessingChange }: 
                 { token, file: selectedFile },
                 {
                   onSuccess: (data) => {
+                    onProcessingChange?.(false);
                     onImported(data);
                     toast.success("Imported resume from PDF");
                   },
