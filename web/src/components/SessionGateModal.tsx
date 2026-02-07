@@ -12,8 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-
-const SESSION_TOKEN_KEY = "session_token";
+import { getSessionToken, setSessionToken } from "../lib/sessionToken";
 
 type SessionGateValues = {
   email: string;
@@ -21,10 +20,7 @@ type SessionGateValues = {
 };
 
 function getHasToken() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return Boolean(sessionStorage.getItem(SESSION_TOKEN_KEY));
+  return Boolean(getSessionToken());
 }
 
 type SessionGateModalProps = {
@@ -79,7 +75,7 @@ export default function SessionGateModal({
           onSubmit={handleSubmit((values) => {
             createSession.mutate(values, {
               onSuccess: (data) => {
-                sessionStorage.setItem(SESSION_TOKEN_KEY, data.session_token);
+                setSessionToken(data.session_token);
                 setHasToken(true);
                 setIsOpen(false);
                 onSessionCreated?.(data.session_token);

@@ -2,22 +2,16 @@ import { useState } from "react";
 import { LogOut } from "lucide-react";
 
 import { useLogoutMutation, useUserQuery } from "../api/hooks";
+import { clearSessionToken, useSessionToken } from "../lib/sessionToken";
 import BrandMark from "./BrandMark";
 import LogoutConfirmDialog from "./LogoutConfirmDialog";
 import SessionGateModal from "./SessionGateModal";
 import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
 
-const SESSION_TOKEN_KEY = "session_token";
-
 export default function AppHeader() {
   const logoutMutation = useLogoutMutation();
-  const [sessionToken, setSessionToken] = useState(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
-  });
+  const sessionToken = useSessionToken();
   const userQuery = useUserQuery(sessionToken ?? undefined);
   const [logoutSignal, setLogoutSignal] = useState(0);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
@@ -29,8 +23,7 @@ export default function AppHeader() {
     }
     logoutMutation.mutate(sessionToken, {
       onSuccess: () => {
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
-        setSessionToken(null);
+        clearSessionToken();
         setLogoutSignal((value) => value + 1);
         setIsLogoutOpen(false);
       },
@@ -39,10 +32,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <SessionGateModal
-        forceOpenKey={logoutSignal}
-        onSessionCreated={(token) => setSessionToken(token)}
-      />
+      <SessionGateModal forceOpenKey={logoutSignal} />
       <LogoutConfirmDialog
         isOpen={isLogoutOpen}
         isPending={logoutMutation.isPending}

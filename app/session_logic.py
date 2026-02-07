@@ -1,10 +1,11 @@
 import secrets
+import uuid
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
 import httpx
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import JSON, Column, DateTime, Integer, String, create_engine, func
 from sqlalchemy.orm import Session as DBSession, declarative_base, sessionmaker
 
 DATABASE_URL = "sqlite:///./app.db"
@@ -24,6 +25,19 @@ class UserSession(Base):
     email = Column(String, nullable=False, index=True)
     session_token = Column(String, nullable=False, unique=True, index=True)
     openai_key = Column(String, nullable=False, unique=True, index=True)
+
+
+class Resume(Base):
+    __tablename__ = "resumes"
+
+    id = Column(String, primary_key=True, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    normalized_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+def new_resume_id() -> str:
+    return str(uuid.uuid4())
 
 
 class SessionCreate(BaseModel):

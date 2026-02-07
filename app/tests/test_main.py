@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from main import app
-from session_logic import Base, UserSession, get_db
+from session_logic import Base, Resume, UserSession, get_db
 
 TEST_DATABASE_URL = "sqlite:///./test_app.db"
 
@@ -264,6 +264,7 @@ def test_import_resume_pdf_rejects_oversize_pdf(client, auth_headers):
 def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypatch):
     import pdf_import
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
 
     monkeypatch.setattr(
         pdf_import,
@@ -301,13 +302,20 @@ def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypat
 
     assert response.status_code == 200
     body = response.json()
+    uuid.UUID(body["resume_id"])
     assert body["sections"][0]["sectionKey"] == "personal-information"
     assert body["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
+
+    with TestingSessionLocal() as db:
+        stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
+        assert stored.user_email == "tester@example.com"
+        assert stored.normalized_json["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
 
 
 def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_headers, monkeypatch):
     import pdf_import
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
 
     monkeypatch.setattr(
         pdf_import,
@@ -342,4 +350,78 @@ def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_header
 
     assert response.status_code == 200
     body = response.json()
+    uuid.UUID(body["resume_id"])
     assert body["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
+
+    with TestingSessionLocal() as db:
+        stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
+        assert stored.user_email == "tester@example.com"
+        assert stored.normalized_json["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
+
+
+def test_list_resumes_returns_only_user_resumes(client, auth_headers):
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json={"sections": []}))
+        db.add(Resume(id="resume-2", user_email="someone@example.com", normalized_json={"sections": []}))
+        db.commit()
+
+    response = client.get("/resumes", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["resume_id"] for item in body["resumes"]] == ["resume-1"]
+
+
+def test_get_resume_returns_stored_json(client, auth_headers):
+    from resume_schema import build_empty_resume_form_values
+
+    stored_json = build_empty_resume_form_values()
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    response = client.get("/resumes/resume-1", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["resume_id"] == "resume-1"
+    assert body["sections"][0]["sectionKey"] == "personal-information"
+
+
+def test_save_resume_updates_stored_json(client, auth_headers):
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+
+    stored_json = build_empty_resume_form_values()
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    next_json = build_empty_resume_form_values()
+    personal = build_empty_values_for_section("personal-information")
+    personal.update({"first-name": "Alice", "last-name": "Smith"})
+    next_json["sections"][0]["items"] = [{"values": personal}]
+
+    response = client.put("/resumes/resume-1", headers=auth_headers, json=next_json)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["resume_id"] == "resume-1"
+    assert body["sections"][0]["items"][0]["values"]["first-name"] == "Alice"
+
+    with TestingSessionLocal() as db:
+        stored = db.query(Resume).filter_by(id="resume-1").one()
+        assert stored.normalized_json["sections"][0]["items"][0]["values"]["last-name"] == "Smith"
+
+
+def test_delete_resume_removes_row(client, auth_headers):
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json={"sections": []}))
+        db.commit()
+
+    response = client.delete("/resumes/resume-1", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    with TestingSessionLocal() as db:
+        assert db.query(Resume).filter_by(id="resume-1").count() == 0
