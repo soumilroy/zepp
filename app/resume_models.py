@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+import uuid
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
@@ -13,9 +14,14 @@ from resume_schema import (
 )
 
 
+def new_entry_id() -> str:
+    return str(uuid.uuid4())
+
+
 class ResumeItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str
     values: dict[str, str]
 
 
@@ -33,6 +39,8 @@ class ResumeFormValues(BaseModel):
 
     @model_validator(mode="after")
     def validate_resume_schema(self) -> "ResumeFormValues":
+        seen_item_ids: set[str] = set()
+
         seen: list[str] = [section.sectionKey for section in self.sections]
         missing = [s.key for s in RESUME_SECTIONS if s.key not in seen]
         extra = [key for key in seen if key not in ALLOWED_SECTION_KEYS]
@@ -61,6 +69,12 @@ class ResumeFormValues(BaseModel):
 
             allowed_fields = set(SECTION_FIELD_KEYS[section.sectionKey])
             for item in section.items:
+                if not item.id or not item.id.strip():
+                    raise ValueError(f"Section {section.sectionKey} has an item with an empty id")
+                if item.id in seen_item_ids:
+                    raise ValueError(f"Duplicate item id: {item.id}")
+                seen_item_ids.add(item.id)
+
                 keys = set(item.values.keys())
                 missing_fields = allowed_fields - keys
                 extra_fields = keys - allowed_fields
@@ -95,6 +109,26 @@ class ResumeListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     resumes: list[ResumeListItem]
+
+
+class ResumeItemInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = None
+    values: dict[str, Any]
+
+
+class ResumeSectionPayloadInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sectionKey: str
+    items: list[ResumeItemInput]
+
+
+class ResumeFormValuesInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sections: list[ResumeSectionPayloadInput]
 
 
 class ResumeSchemaField(BaseModel):
@@ -146,6 +180,7 @@ def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
         if isinstance(key, str):
             incoming_by_key[key] = section
 
+    used_item_ids: set[str] = set()
     upgraded_sections: list[dict[str, Any]] = []
     for section in RESUME_SECTIONS:
         section_key = section.key
@@ -163,6 +198,15 @@ def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
         for item in incoming_items:
             if not isinstance(item, dict):
                 continue
+
+            raw_item_id = item.get("id")
+            item_id = raw_item_id.strip() if isinstance(raw_item_id, str) else ""
+            if not item_id or item_id in used_item_ids:
+                item_id = new_entry_id()
+                while item_id in used_item_ids:
+                    item_id = new_entry_id()
+            used_item_ids.add(item_id)
+
             values = item.get("values")
             if not isinstance(values, dict):
                 values = {}
@@ -178,7 +222,7 @@ def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
                 # No-op: we already excluded them.
                 pass
 
-            upgraded_items.append({"values": upgraded_values})
+            upgraded_items.append({"id": item_id, "values": upgraded_values})
 
             if section_key in SINGLE_ENTRY_SECTION_KEYS:
                 break
@@ -207,60 +251,7 @@ def normalize_llm_resume_form_values(data: Any) -> Any:
     LLMs sometimes emit numbers/bools/nulls for fields we store as strings.
     We coerce scalar primitives into strings, but reject nested structures.
     """
-    if not isinstance(data, dict):
-        return data
-
-    sections = data.get("sections")
-    if not isinstance(sections, list):
-        return data
-
-    normalized = dict(data)
-    normalized_sections: list[Any] = []
-    for section_index, section in enumerate(sections):
-        if not isinstance(section, dict):
-            normalized_sections.append(section)
-            continue
-
-        section_copy = dict(section)
-        items = section.get("items")
-        if not isinstance(items, list):
-            normalized_sections.append(section_copy)
-            continue
-
-        normalized_items: list[Any] = []
-        for item_index, item in enumerate(items):
-            if not isinstance(item, dict):
-                normalized_items.append(item)
-                continue
-
-            item_copy = dict(item)
-            values = item.get("values")
-            if not isinstance(values, dict):
-                normalized_items.append(item_copy)
-                continue
-
-            normalized_values: dict[str, Any] = {}
-            for key, value in values.items():
-                if not isinstance(key, str):
-                    raise ValueError(
-                        f"LLM output invalid at sections.{section_index}.items.{item_index}.values: non-string key"
-                    )
-                try:
-                    normalized_values[key] = _coerce_scalar_to_string(value)
-                except TypeError as exc:
-                    raise ValueError(
-                        f"LLM output invalid at sections.{section_index}.items.{item_index}.values.{key}: "
-                        f"value must be a string (or scalar), got {type(value).__name__}"
-                    ) from exc
-
-            item_copy["values"] = normalized_values
-            normalized_items.append(item_copy)
-
-        section_copy["items"] = normalized_items
-        normalized_sections.append(section_copy)
-
-    normalized["sections"] = normalized_sections
-    return normalized
+    return upgrade_resume_form_values(data)
 
 
 def validate_resume_form_values(data: Any) -> ResumeFormValues:

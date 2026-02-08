@@ -44,6 +44,7 @@ export type ResumeImportResponse = {
   sections: {
     sectionKey: string;
     items: {
+      id: string;
       values: Record<string, string>;
     }[];
   }[];

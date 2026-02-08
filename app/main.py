@@ -5,11 +5,13 @@ from sqlalchemy.orm import Session as DBSession
 from pdf_import import MAX_PDF_BYTES, import_resume_from_pdf_bytes
 from resume_models import (
     ResumeFormValues,
+    ResumeFormValuesInput,
     ResumeImportResponse,
     ResumeListItem,
     ResumeListResponse,
     ResumeSchemaResponse,
     upgrade_resume_form_values,
+    validate_resume_form_values,
 )
 from resume_schema import resume_schema_for_client
 from session_logic import (
@@ -194,7 +196,7 @@ async def get_resume(
 @app.put("/resumes/{resume_id}", response_model=ResumeImportResponse)
 async def save_resume(
     resume_id: str,
-    payload: ResumeFormValues,
+    payload: ResumeFormValuesInput,
     session: UserSession = Depends(require_session_token),
     db: DBSession = Depends(get_db),
 ):
@@ -206,7 +208,8 @@ async def save_resume(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found.")
 
-    row.normalized_json = payload.model_dump()
+    validated = validate_resume_form_values(payload.model_dump())
+    row.normalized_json = validated.model_dump()
     db.add(row)
     db.commit()
     return ResumeImportResponse(resume_id=row.id, **row.normalized_json)

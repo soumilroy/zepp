@@ -286,7 +286,7 @@ def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypat
             "phone": "555-0100",
         }
     )
-    llm_output["sections"][0]["items"] = [{"values": personal_values}]
+    llm_output["sections"][0]["items"] = [{"id": "", "values": personal_values}]
 
     monkeypatch.setattr(
         pdf_import,
@@ -304,11 +304,13 @@ def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypat
     body = response.json()
     uuid.UUID(body["resume_id"])
     assert body["sections"][0]["sectionKey"] == "personal-information"
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
     assert body["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
         assert stored.user_email == "tester@example.com"
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
         assert stored.normalized_json["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
 
 
@@ -334,7 +336,7 @@ def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_header
             "gpa": 3.8,  # LLM sometimes emits as a JSON number
         }
     )
-    llm_output["sections"][1]["items"] = [{"values": education_values}]
+    llm_output["sections"][1]["items"] = [{"id": "", "values": education_values}]
 
     monkeypatch.setattr(
         pdf_import,
@@ -351,11 +353,13 @@ def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_header
     assert response.status_code == 200
     body = response.json()
     uuid.UUID(body["resume_id"])
+    uuid.UUID(body["sections"][1]["items"][0]["id"])
     assert body["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
         assert stored.user_email == "tester@example.com"
+        uuid.UUID(stored.normalized_json["sections"][1]["items"][0]["id"])
         assert stored.normalized_json["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
 
 
@@ -391,6 +395,7 @@ def test_get_resume_returns_stored_json(client, auth_headers):
 def test_get_resume_upgrades_older_json_missing_new_fields(client, auth_headers):
     # Simulate an older resume payload missing a newly-added field.
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
 
     stored_json = build_empty_resume_form_values()
     personal = build_empty_values_for_section("personal-information")
@@ -412,15 +417,18 @@ def test_get_resume_upgrades_older_json_missing_new_fields(client, auth_headers)
 
     assert response.status_code == 200
     body = response.json()
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
     assert body["sections"][0]["items"][0]["values"]["designation"] == ""
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id="resume-1").one()
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
         assert stored.normalized_json["sections"][0]["items"][0]["values"]["designation"] == ""
 
 
 def test_save_resume_updates_stored_json(client, auth_headers):
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
 
     stored_json = build_empty_resume_form_values()
     with TestingSessionLocal() as db:
@@ -437,10 +445,12 @@ def test_save_resume_updates_stored_json(client, auth_headers):
     assert response.status_code == 200
     body = response.json()
     assert body["resume_id"] == "resume-1"
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
     assert body["sections"][0]["items"][0]["values"]["first-name"] == "Alice"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id="resume-1").one()
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
         assert stored.normalized_json["sections"][0]["items"][0]["values"]["last-name"] == "Smith"
 
 

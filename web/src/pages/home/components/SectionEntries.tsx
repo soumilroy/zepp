@@ -9,6 +9,7 @@ import { Plus } from "lucide-react";
 
 import { buildPrefilledValues } from "../resume";
 import type { FormValues, ResumeSection } from "../types";
+import { newEntryId } from "../entryId";
 import { DraggableEntry } from "./DraggableEntry";
 import { Button } from "../../../components/ui/button";
 
@@ -32,6 +33,7 @@ export function SectionEntries({
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: `sections.${sectionIndex}.items`,
+    keyName: "rhfId",
   });
   const watchedItems =
     useWatch({
@@ -67,7 +69,7 @@ export function SectionEntries({
   const handleAdd = () => {
     setIsOpen(true);
     if (isAddDisabled) return;
-    append({ values: buildPrefilledValues(section) });
+    append({ id: newEntryId(), values: buildPrefilledValues(section) });
   };
 
   const toggleExpanded = (id: string) => {
@@ -94,7 +96,8 @@ export function SectionEntries({
             <p className="text-sm text-slate-600 dark:text-slate-500">No entries yet.</p>
           ) : (
             fields.map((field, itemIndex) => {
-              const isExpanded = expandedIds.includes(field.id);
+              const entryId = field.id;
+              const isExpanded = expandedIds.includes(entryId);
               const primaryKey = section.fields[0]?.key;
               const primaryValue = primaryKey
                 ? watchedItems[itemIndex]?.values?.[primaryKey]?.trim()
@@ -102,8 +105,8 @@ export function SectionEntries({
               const entryTitle = primaryValue || `${section.title} entry`;
               return (
                 <DraggableEntry
-                  key={field.id}
-                  entryId={field.id}
+                  key={entryId ?? field.rhfId}
+                  entryId={entryId}
                   entryIndex={itemIndex}
                   section={section}
                   sectionIndex={sectionIndex}
@@ -115,7 +118,7 @@ export function SectionEntries({
                   enableDrag={!isSingleEntry}
                   allowDelete
                   onToggle={toggleExpanded}
-                  onRemove={() => handleRemove(itemIndex, field.id)}
+                  onRemove={() => handleRemove(itemIndex, entryId)}
                   onMove={move}
                 />
               );
