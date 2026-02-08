@@ -16,6 +16,7 @@ export type SectionCardProps = {
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
   onSave: () => void;
+  onDelete?: (sectionIndex: number, entryIndex: number) => void;
 };
 
 export function SectionCard({
@@ -24,6 +25,7 @@ export function SectionCard({
   control,
   register,
   onSave,
+  onDelete,
 }: SectionCardProps) {
   const Icon = section.icon;
 
@@ -100,6 +102,7 @@ export function SectionCard({
         control={control}
         register={register}
         onSave={onSave}
+        onDelete={onDelete}
       />
     </div>
   );

@@ -9,7 +9,7 @@ type Props = {
 export default function FullScreenLoadingOverlay({
   open,
   title = "Working…",
-  message = "Uploading and parsing your PDF. Please don’t close this tab.",
+  message = "Please wait. Please don’t close this tab.",
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 

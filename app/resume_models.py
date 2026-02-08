@@ -97,6 +97,99 @@ class ResumeListResponse(BaseModel):
     resumes: list[ResumeListItem]
 
 
+class ResumeSchemaField(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    label: str
+    type: str
+
+
+class ResumeSchemaSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sectionKey: str
+    title: str
+    entryType: str
+    fields: list[ResumeSchemaField]
+
+
+class ResumeSchemaResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sections: list[ResumeSchemaSection]
+
+
+def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
+    """
+    Best-effort upgrade of stored resume JSON to the latest canonical schema.
+
+    This avoids breaking older resumes when the schema changes (e.g. adding a
+    new field). Unknown keys are ignored; missing keys are filled with "".
+    """
+    canonical_sections = [
+        {"sectionKey": section.key, "items": []}
+        for section in RESUME_SECTIONS
+    ]
+    if not isinstance(data, dict):
+        return {"sections": canonical_sections}
+
+    incoming_sections = data.get("sections")
+    if not isinstance(incoming_sections, list):
+        return {"sections": canonical_sections}
+
+    incoming_by_key: dict[str, Any] = {}
+    for section in incoming_sections:
+        if not isinstance(section, dict):
+            continue
+        key = section.get("sectionKey")
+        if isinstance(key, str):
+            incoming_by_key[key] = section
+
+    upgraded_sections: list[dict[str, Any]] = []
+    for section in RESUME_SECTIONS:
+        section_key = section.key
+        allowed_fields = set(SECTION_FIELD_KEYS[section_key])
+        incoming_section = incoming_by_key.get(section_key, {})
+        incoming_items = (
+            incoming_section.get("items")
+            if isinstance(incoming_section, dict)
+            else None
+        )
+        if not isinstance(incoming_items, list):
+            incoming_items = []
+
+        upgraded_items: list[dict[str, Any]] = []
+        for item in incoming_items:
+            if not isinstance(item, dict):
+                continue
+            values = item.get("values")
+            if not isinstance(values, dict):
+                values = {}
+
+            upgraded_values: dict[str, str] = {}
+            for field_key in SECTION_FIELD_KEYS[section_key]:
+                raw_value = values.get(field_key)
+                upgraded_values[field_key] = _coerce_scalar_to_string(raw_value)
+
+            # If the client/LLM sent unknown keys, we intentionally drop them.
+            unknown_keys = set(values.keys()) - allowed_fields
+            if unknown_keys:
+                # No-op: we already excluded them.
+                pass
+
+            upgraded_items.append({"values": upgraded_values})
+
+            if section_key in SINGLE_ENTRY_SECTION_KEYS:
+                break
+
+        upgraded_sections.append(
+            {"sectionKey": section_key, "items": upgraded_items}
+        )
+
+    return {"sections": upgraded_sections}
+
+
 def _coerce_scalar_to_string(value: Any) -> str:
     if value is None:
         return ""

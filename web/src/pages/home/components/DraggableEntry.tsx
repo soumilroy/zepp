@@ -26,15 +26,44 @@ export type DraggableEntryProps = {
   enableDrag: boolean;
   allowDelete: boolean;
   onToggle: (id: string) => void;
-  onRemove: (index: number) => void;
+  onRemove: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
 };
 
 const REQUIRED_FIELDS_BY_SECTION: Record<string, string[]> = {
-  "Personal Information": ["First Name", "Email", "Phone"],
+  "Personal Information": ["First Name", "Last Name", "Designation", "Email", "Phone"],
   Education: ["School"],
   "Work Experience": ["Company", "Position"],
   Portfolio: ["Title"],
+};
+
+const PLACEHOLDER_EXAMPLES: Record<string, string> = {
+  "First Name": "Jane",
+  "Last Name": "Doe",
+  Email: "jane.doe@gmail.com",
+  Phone: "(555) 123-4567",
+  Location: "Austin, TX",
+  Website: "janedoe.dev",
+  LinkedIn: "linkedin.com/in/janedoe",
+  GitHub: "github.com/janedoe",
+  School: "University of Texas",
+  Degree: "B.S. Computer Science",
+  Major: "Computer Science",
+  GPA: "3.8",
+  Company: "Acme Corp",
+  Position: "Software Engineer",
+  Title: "Portfolio Website",
+  Designation: "Senior Product Designer",
+  "Start Date": "Aug 2021",
+  "End Date": "May 2025",
+};
+
+const getPlaceholder = (label: string, editor?: "quill") => {
+  const example = PLACEHOLDER_EXAMPLES[label];
+  if (editor === "quill") {
+    return example ? `Write something like: "${example}"` : `Write ${label}`;
+  }
+  return example ? `e.g. ${example}` : `Enter ${label}`;
 };
 
 export function DraggableEntry({
@@ -126,7 +155,7 @@ export function DraggableEntry({
           {allowDelete ? (
             <button
               type="button"
-              onClick={() => onRemove(entryIndex)}
+              onClick={onRemove}
               className="inline-flex items-center gap-1 rounded-md bg-rose-600/10 px-1.5 py-1 text-xs text-rose-800 hover:bg-rose-600/15 dark:bg-rose-500/15 dark:text-rose-100 dark:hover:bg-rose-500/25"
             >
               <Trash2 className="h-3 w-3" />
@@ -167,7 +196,7 @@ export function DraggableEntry({
                         formats={[...quillFormats]}
                         value={field.value || ""}
                         onChange={field.onChange}
-                        placeholder={fieldDef.label}
+                        placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
                       />
                     </div>
                   )}
@@ -176,7 +205,7 @@ export function DraggableEntry({
                 <input
                   type={fieldDef.type}
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder={fieldDef.label}
+                  placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
                   {...register(
                     `sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`,
                   )}

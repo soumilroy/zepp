@@ -22,7 +22,12 @@ function formatBytes(bytes: number) {
 }
 
 function validatePdf(file: File): string | null {
-  if (file.type !== "application/pdf") {
+  const filename = file.name?.toLowerCase?.() ?? "";
+  const isPdfName = filename.endsWith(".pdf");
+  const isPdfType =
+    file.type === "application/pdf" ||
+    file.type === "application/x-pdf";
+  if (!isPdfName && !isPdfType) {
     return "Only PDF files are supported.";
   }
   if (file.size > MAX_PDF_BYTES) {

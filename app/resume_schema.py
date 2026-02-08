@@ -52,6 +52,7 @@ _RAW_STRUCTURE: list[dict] = [
         "fields": [
             {"label": "First Name", "type": "text"},
             {"label": "Last Name", "type": "text"},
+            {"label": "Designation", "type": "text"},
             {"label": "Email", "type": "text"},
             {"label": "Phone", "type": "text"},
             {"label": "Address", "type": "text"},
@@ -213,3 +214,22 @@ def resume_schema_for_prompt() -> list[dict]:
         for section in RESUME_SECTIONS
     ]
 
+
+def resume_schema_for_client() -> list[dict]:
+    """
+    Resume schema for frontend consumption.
+
+    Includes stable keys plus user-facing titles/labels.
+    """
+    return [
+        {
+            "sectionKey": section.key,
+            "title": section.title,
+            "entryType": section.entry_type,
+            "fields": [
+                {"key": field.key, "label": field.label, "type": field.field_type}
+                for field in section.fields
+            ],
+        }
+        for section in RESUME_SECTIONS
+    ]

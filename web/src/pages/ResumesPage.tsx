@@ -21,6 +21,11 @@ export default function ResumesPage() {
       <FullScreenLoadingOverlay
         open={isImporting || isDeleting}
         title={isDeleting ? "Deleting resume…" : "Importing resume…"}
+        message={
+          isDeleting
+            ? "Removing your resume. Please don’t close this tab."
+            : "Uploading and parsing your PDF. Please don’t close this tab."
+        }
       />
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:items-start">
         <ResumeLibraryCard

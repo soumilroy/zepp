@@ -48,3 +48,20 @@ export type ResumeImportResponse = {
     }[];
   }[];
 };
+
+export type ResumeSchemaField = {
+  key: string;
+  label: string;
+  type: string;
+};
+
+export type ResumeSchemaSection = {
+  sectionKey: string;
+  title: string;
+  entryType: string;
+  fields: ResumeSchemaField[];
+};
+
+export type ResumeSchemaResponse = {
+  sections: ResumeSchemaSection[];
+};

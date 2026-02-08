@@ -3,7 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session as DBSession
 
 from pdf_import import MAX_PDF_BYTES, import_resume_from_pdf_bytes
-from resume_models import ResumeFormValues, ResumeImportResponse, ResumeListItem, ResumeListResponse
+from resume_models import (
+    ResumeFormValues,
+    ResumeImportResponse,
+    ResumeListItem,
+    ResumeListResponse,
+    ResumeSchemaResponse,
+    upgrade_resume_form_values,
+)
+from resume_schema import resume_schema_for_client
 from session_logic import (
     Resume,
     SessionCreate,
@@ -48,6 +56,11 @@ async def get_user(session: UserSession = Depends(require_session_token)):
 @app.get("/session-status-check")
 async def session_status_check(_session: UserSession = Depends(require_session_token)):
     return {"status": "success", "message": "ok"}
+
+
+@app.get("/resume/schema", response_model=ResumeSchemaResponse)
+async def get_resume_schema():
+    return ResumeSchemaResponse(sections=resume_schema_for_client())
 
 @app.post("/resume/import/pdf", response_model=ResumeImportResponse)
 async def import_resume_pdf(
@@ -168,7 +181,14 @@ async def get_resume(
             status_code=status.HTTP_409_CONFLICT,
             detail="Resume is not ready yet. Please re-import.",
         )
-    return ResumeImportResponse(resume_id=row.id, **row.normalized_json)
+
+    upgraded = upgrade_resume_form_values(row.normalized_json)
+    if upgraded != row.normalized_json:
+        row.normalized_json = upgraded
+        db.add(row)
+        db.commit()
+
+    return ResumeImportResponse(resume_id=row.id, **upgraded)
 
 
 @app.put("/resumes/{resume_id}", response_model=ResumeImportResponse)

@@ -9,11 +9,20 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import AppHeader from "../components/AppHeader";
 import FullScreenLoadingOverlay from "../components/FullScreenLoadingOverlay";
-import { useDeleteResumeMutation, useResumeQuery, useSaveResumeMutation } from "../api/hooks";
+import {
+  useDeleteResumeMutation,
+  useResumeQuery,
+  useResumeSchemaQuery,
+  useSaveResumeMutation,
+} from "../api/hooks";
 import { useSessionToken } from "../lib/sessionToken";
 import { Button } from "../components/ui/button";
 import { SectionCard } from "./home/components/SectionCard";
-import { defaultValues, resumeSectionMap } from "./home/resume";
+import {
+  buildDefaultValues,
+  buildResumeSectionMap,
+  buildResumeSections,
+} from "./home/resume";
 import type { FormValues } from "./home/types";
 
 export default function ResumeEditorPage() {
@@ -21,19 +30,30 @@ export default function ResumeEditorPage() {
   const navigate = useNavigate();
   const params = useParams<{ resumeId: string }>();
   const resumeId = params.resumeId ?? null;
+  const resumeSchemaQuery = useResumeSchemaQuery();
   const resumeQuery = useResumeQuery(sessionToken ?? undefined, resumeId);
   const saveResume = useSaveResumeMutation();
   const deleteResume = useDeleteResumeMutation();
   const queryClient = useQueryClient();
 
   const { control, handleSubmit, register, reset } = useForm<FormValues>({
-    defaultValues,
+    defaultValues: { sections: [] },
   });
 
   const { fields } = useFieldArray({
     control,
     name: "sections",
   });
+
+  const resumeSections = useMemo(
+    () => (resumeSchemaQuery.data ? buildResumeSections(resumeSchemaQuery.data) : []),
+    [resumeSchemaQuery.data],
+  );
+
+  const resumeSectionMap = useMemo(
+    () => buildResumeSectionMap(resumeSections),
+    [resumeSections],
+  );
 
   const orderedSections = useMemo(
     () =>
@@ -42,39 +62,63 @@ export default function ResumeEditorPage() {
         sectionKey: field.sectionKey,
         section: resumeSectionMap[field.sectionKey],
       })),
-    [fields],
+    [fields, resumeSectionMap],
   );
 
   useEffect(() => {
-    if (!resumeQuery.data) {
+    if (resumeQuery.data) {
+      reset({ sections: resumeQuery.data.sections } as unknown as FormValues);
       return;
     }
-    reset({ sections: resumeQuery.data.sections } as unknown as FormValues);
-  }, [resumeQuery.data, reset]);
+    if (resumeSchemaQuery.data) {
+      reset(buildDefaultValues(resumeSections));
+    }
+  }, [resumeQuery.data, resumeSchemaQuery.data, reset, resumeSections]);
 
   useEffect(() => {
-    if (!resumeQuery.isError) {
-      return;
+    if (resumeQuery.isError) {
+      toast.error(resumeQuery.error.message);
     }
-    toast.error(resumeQuery.error.message);
-  }, [resumeQuery.error, resumeQuery.isError]);
+    if (resumeSchemaQuery.isError) {
+      toast.error(resumeSchemaQuery.error.message);
+    }
+  }, [resumeQuery.error, resumeQuery.isError, resumeSchemaQuery.error, resumeSchemaQuery.isError]);
 
   const onSubmit = (data: FormValues) => {
     console.log("Resume form values", data);
   };
-  const onEntrySave = handleSubmit((data) => {
+  type EntrySaveVariant = "success" | "info" | "warning";
+
+  const persistEntries = (
+    data: FormValues,
+    {
+      loadingMessage,
+      successMessage,
+      successVariant = "success",
+    }: {
+      loadingMessage: string;
+      successMessage: string;
+      successVariant?: EntrySaveVariant;
+    },
+  ) => {
     onSubmit(data);
     if (!sessionToken || !resumeId) {
       toast.error("Please create a session first.");
       return;
     }
 
-    const toastId = toast.loading("Saving…");
+    const toastId = toast.loading(loadingMessage);
     saveResume.mutate(
       { token: sessionToken, resumeId, body: { sections: data.sections } },
       {
         onSuccess: () => {
-          toast.success("Saved", { id: toastId });
+          const successToast =
+            successVariant === "warning"
+              ? toast.warning
+              : successVariant === "info"
+                ? toast.info
+                : toast.success;
+          successToast(successMessage, { id: toastId });
           queryClient.invalidateQueries({ queryKey: ["resumes", sessionToken] });
         },
         onError: (error) => {
@@ -82,9 +126,27 @@ export default function ResumeEditorPage() {
         },
       },
     );
+  };
+
+  const onEntrySave = handleSubmit((data) => {
+    persistEntries(data, {
+      loadingMessage: "Saving…",
+      successMessage: "Saved",
+    });
+  });
+
+  const onEntryDelete = handleSubmit((data) => {
+    persistEntries(data, {
+      loadingMessage: "Deleting entry…",
+      successMessage: "Entry deleted",
+      successVariant: "warning",
+    });
   });
 
   const onSaveAll = () => onEntrySave();
+  const handleEntryDelete = (_sectionIndex: number, _entryIndex: number) => {
+    onEntryDelete();
+  };
 
   const onDelete = () => {
     if (!sessionToken || !resumeId) {
@@ -114,8 +176,19 @@ export default function ResumeEditorPage() {
     <main className="min-h-screen">
       <AppHeader />
       <FullScreenLoadingOverlay
-        open={resumeQuery.isFetching || deleteResume.isPending}
-        title={deleteResume.isPending ? "Deleting resume…" : "Loading resume…"}
+        open={resumeSchemaQuery.isFetching || resumeQuery.isFetching || deleteResume.isPending}
+        title={
+          deleteResume.isPending
+            ? "Deleting resume…"
+            : resumeSchemaQuery.isFetching
+              ? "Loading editor…"
+              : "Loading resume…"
+        }
+        message={
+          deleteResume.isPending
+            ? "Removing your resume. Please don’t close this tab."
+            : "Loading your resume data. Please don’t close this tab."
+        }
       />
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10">
         <div className="flex items-center justify-between gap-4">
@@ -147,6 +220,12 @@ export default function ResumeEditorPage() {
           </div>
         </div>
 
+        {resumeSchemaQuery.isError ? (
+          <aside className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
+            {resumeSchemaQuery.error.message}
+          </aside>
+        ) : null}
+
         {resumeQuery.isError ? (
           <aside className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
             {resumeQuery.error.message}
@@ -164,6 +243,7 @@ export default function ResumeEditorPage() {
                   control={control}
                   register={register}
                   onSave={onEntrySave}
+                  onDelete={handleEntryDelete}
                 />
               ) : null,
             )}

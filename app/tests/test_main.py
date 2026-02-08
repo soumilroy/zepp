@@ -388,6 +388,37 @@ def test_get_resume_returns_stored_json(client, auth_headers):
     assert body["sections"][0]["sectionKey"] == "personal-information"
 
 
+def test_get_resume_upgrades_older_json_missing_new_fields(client, auth_headers):
+    # Simulate an older resume payload missing a newly-added field.
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+
+    stored_json = build_empty_resume_form_values()
+    personal = build_empty_values_for_section("personal-information")
+    personal.update(
+        {
+            "first-name": "Alice",
+            "last-name": "Smith",
+            "email": "alice@example.com",
+        }
+    )
+    personal.pop("designation", None)
+    stored_json["sections"][0]["items"] = [{"values": personal}]
+
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    response = client.get("/resumes/resume-1", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sections"][0]["items"][0]["values"]["designation"] == ""
+
+    with TestingSessionLocal() as db:
+        stored = db.query(Resume).filter_by(id="resume-1").one()
+        assert stored.normalized_json["sections"][0]["items"][0]["values"]["designation"] == ""
+
+
 def test_save_resume_updates_stored_json(client, auth_headers):
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
 

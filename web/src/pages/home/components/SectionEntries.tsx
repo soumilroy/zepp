@@ -18,6 +18,7 @@ export type SectionEntriesProps = {
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
   onSave: () => void;
+  onDelete?: (sectionIndex: number, entryIndex: number) => void;
 };
 
 export function SectionEntries({
@@ -26,6 +27,7 @@ export function SectionEntries({
   control,
   register,
   onSave,
+  onDelete,
 }: SectionEntriesProps) {
   const { fields, append, remove, move } = useFieldArray({
     control,
@@ -74,6 +76,12 @@ export function SectionEntries({
     );
   };
 
+  const handleRemove = (itemIndex: number, entryId: string) => {
+    setExpandedIds((prev) => prev.filter((entry) => entry !== entryId));
+    remove(itemIndex);
+    onDelete?.(sectionIndex, itemIndex);
+  };
+
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-3" />
@@ -107,7 +115,7 @@ export function SectionEntries({
                   enableDrag={!isSingleEntry}
                   allowDelete
                   onToggle={toggleExpanded}
-                  onRemove={remove}
+                  onRemove={() => handleRemove(itemIndex, field.id)}
                   onMove={move}
                 />
               );

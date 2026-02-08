@@ -9,8 +9,17 @@ import type {
   ResumeDeleteResponse,
   ResumeImportResponse,
   ResumeListResponse,
+  ResumeSchemaResponse,
   UserResponse,
 } from "./types";
+
+export function useResumeSchemaQuery() {
+  return useQuery({
+    queryKey: ["resume-schema"],
+    queryFn: () => apiRequest<ResumeSchemaResponse>("/resume/schema"),
+    staleTime: Infinity,
+  });
+}
 
 export function useProtectedStatusQuery(token?: string) {
   return useQuery({
