@@ -42,16 +42,29 @@ export function SectionCard({
 
   const pillBorderTone =
     {
-      "personal-information": "border-sky-200 dark:border-sky-700/30",
-      education: "border-emerald-200 dark:border-emerald-700/30",
-      "work-experience": "border-amber-200 dark:border-amber-700/30",
-      skills: "border-violet-200 dark:border-violet-700/30",
-      projects: "border-cyan-200 dark:border-cyan-700/30",
-      references: "border-rose-200 dark:border-rose-700/30",
-      certifications: "border-lime-200 dark:border-lime-700/30",
-      languages: "border-indigo-200 dark:border-indigo-700/30",
-      portfolio: "border-fuchsia-200 dark:border-fuchsia-700/30",
-    }[section.key] ?? "border-slate-200 dark:border-slate-800/30";
+      "personal-information": "border-sky-200 dark:border-sky-400/40",
+      education: "border-emerald-200 dark:border-emerald-400/40",
+      "work-experience": "border-amber-200 dark:border-amber-400/40",
+      skills: "border-violet-200 dark:border-violet-400/40",
+      projects: "border-cyan-200 dark:border-cyan-400/40",
+      references: "border-rose-200 dark:border-rose-400/40",
+      certifications: "border-lime-200 dark:border-lime-400/40",
+      languages: "border-indigo-200 dark:border-indigo-400/40",
+      portfolio: "border-fuchsia-200 dark:border-fuchsia-400/40",
+    }[section.key] ?? "border-slate-200 dark:border-slate-600/40";
+
+  const titleBgTone =
+    {
+      "personal-information": "bg-sky-50 dark:bg-sky-900/50",
+      education: "bg-emerald-50 dark:bg-emerald-900/50",
+      "work-experience": "bg-amber-50 dark:bg-amber-900/50",
+      skills: "bg-violet-50 dark:bg-violet-900/50",
+      projects: "bg-cyan-50 dark:bg-cyan-900/50",
+      references: "bg-rose-50 dark:bg-rose-900/50",
+      certifications: "bg-lime-50 dark:bg-lime-900/50",
+      languages: "bg-indigo-50 dark:bg-indigo-900/50",
+      portfolio: "bg-fuchsia-50 dark:bg-fuchsia-900/50",
+    }[section.key] ?? "bg-slate-50 dark:bg-slate-800/60";
 
   return (
     <div
@@ -59,21 +72,21 @@ export function SectionCard({
         }`}
     >
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="w-full">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
-                  className={`inline-flex items-center gap-2 rounded-full border bg-white py-1 pl-1 pr-3 shadow-sm dark:bg-slate-800/70 ${pillBorderTone}`}
+                  className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${pillBorderTone} ${titleBgTone}`}
                   aria-label={`${section.title} description`}
                 >
                   <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700/80">
-                    <Icon className="h-4 w-4 text-slate-700 dark:text-slate-200" />
+                    <Icon className={`h-4 w-4 ${titleTone}`} />
                   </span>
                   <h3 className={`text-sm font-semibold ${titleTone}`}>
                     {section.title}
                   </h3>
-                  <Info className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <Info className={`h-4 w-4 ${titleTone} opacity-70`} />
                 </div>
               </TooltipTrigger>
               <TooltipContent>{section.description}</TooltipContent>

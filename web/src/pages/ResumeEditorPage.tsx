@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useForm, useFieldArray } from "react-hook-form";
 import { DndProvider } from "react-dnd";
@@ -113,8 +114,8 @@ export default function ResumeEditorPage() {
     <main className="min-h-screen">
       <AppHeader />
       <FullScreenLoadingOverlay
-        open={resumeQuery.isFetching || saveResume.isPending || deleteResume.isPending}
-        title={deleteResume.isPending ? "Deleting resume…" : saveResume.isPending ? "Saving resume…" : "Loading resume…"}
+        open={resumeQuery.isFetching || deleteResume.isPending}
+        title={deleteResume.isPending ? "Deleting resume…" : "Loading resume…"}
       />
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10">
         <div className="flex items-center justify-between gap-4">
@@ -129,21 +130,19 @@ export default function ResumeEditorPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={onSaveAll}
-              disabled={resumeQuery.isFetching || saveResume.isPending || deleteResume.isPending}
-            >
-              Save
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
+              variant="outline"
+              size="sm"
               onClick={onDelete}
               disabled={resumeQuery.isFetching || saveResume.isPending || deleteResume.isPending}
             >
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
               Delete
             </Button>
-            <Button asChild type="button" variant="secondary" disabled={resumeQuery.isFetching}>
-              <Link to="/resumes">Back to resumes</Link>
+            <Button asChild type="button" variant="secondary" size="sm" disabled={resumeQuery.isFetching}>
+              <Link to="/resumes">
+                <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+                Back to resumes
+              </Link>
             </Button>
           </div>
         </div>
