@@ -18,7 +18,7 @@ export default function BrandMark({
         <span>Zepp.ai</span>
       </div>
       {showTagline ? (
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600 dark:text-slate-500">
+        <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.2em] text-slate-600 dark:text-slate-500">
           AI Powered resume builder
         </p>
       ) : null}
