@@ -28,14 +28,11 @@ export default function ResumeLibraryCard({
 
   return (
     <aside className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950/40">
-      <header className="flex flex-col gap-2">
-        <p className="text-xs font-medium uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
-          Library
-        </p>
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50">
+      <header className="flex flex-col gap-0.5">
+        <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
           Your resumes
         </h2>
-        <p className="max-w-2xl text-sm text-slate-600 sm:text-base dark:text-slate-300">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           Pick a resume to continue editing, or import a new one.
         </p>
       </header>

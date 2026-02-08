@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import { buildPrefilledValues } from "../resume";
 import type { FormValues, ResumeSection } from "../types";
 import { DraggableEntry } from "./DraggableEntry";
+import { Button } from "../../../components/ui/button";
 
 export type SectionEntriesProps = {
   section: ResumeSection;
@@ -115,20 +116,18 @@ export function SectionEntries({
         </div>
       </div>
       <div className="pt-3">
-        <button
+        <Button
           type="button"
           onClick={handleAdd}
-          className={`rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm dark:border-slate-600 dark:bg-transparent dark:text-slate-200 ${isAddDisabled
-            ? "cursor-not-allowed opacity-50"
-            : "hover:border-slate-400 dark:hover:border-slate-400"
-            }`}
+          variant="default"
+          size="sm"
           disabled={isAddDisabled}
         >
           <span className="inline-flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add {section.title}
           </span>
-        </button>
+        </Button>
       </div>
     </div>
   );

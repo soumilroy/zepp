@@ -50,12 +50,12 @@ export default function ImportResumePdfCard({ onImported, onProcessingChange }: 
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-400/10 dark:text-indigo-300">
             <FileText className="h-5 w-5" />
           </span>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50">
-              Import your resume PDF
+          <div className="space-y-0.5">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              Get started
             </h2>
-            <p className="max-w-2xl text-sm text-slate-600 sm:text-base dark:text-slate-300">
-              Upload a text-based PDF and we’ll convert it into editable sections in seconds.
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Upload your resume to get started.
             </p>
           </div>
         </div>
