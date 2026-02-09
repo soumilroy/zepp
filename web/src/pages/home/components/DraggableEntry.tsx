@@ -1,17 +1,15 @@
-import { ChevronDown, ChevronUp, GripVertical, Save, Trash2 } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import { useEntryDnD } from "../dnd/useEntryDnD";
 import {
   Controller,
-  useWatch,
   type Control,
   type UseFormRegister,
 } from "react-hook-form";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { toast } from "sonner";
 
 import { quillFormats, quillModules } from "../quill";
-import type { FormValues, ResumeSection } from "../types";
+import type { EntryAnalysis, FormValues, ResumeSection } from "../types";
 
 export type DraggableEntryProps = {
   entryId: string;
@@ -20,7 +18,7 @@ export type DraggableEntryProps = {
   sectionIndex: number;
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
-  onSave: () => void;
+  analysis?: EntryAnalysis;
   entryTitle: string;
   isExpanded: boolean;
   enableDrag: boolean;
@@ -28,13 +26,6 @@ export type DraggableEntryProps = {
   onToggle: (id: string) => void;
   onRemove: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
-};
-
-const REQUIRED_FIELDS_BY_SECTION: Record<string, string[]> = {
-  "Personal Information": ["First Name", "Last Name", "Designation", "Email", "Phone"],
-  Education: ["School"],
-  "Work Experience": ["Company", "Position"],
-  Portfolio: ["Title"],
 };
 
 const PLACEHOLDER_EXAMPLES: Record<string, string> = {
@@ -66,6 +57,69 @@ const getPlaceholder = (label: string, editor?: "quill") => {
   return example ? `e.g. ${example}` : `Enter ${label}`;
 };
 
+function isValidUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  let candidate = trimmed;
+  if (!candidate.toLowerCase().startsWith("http://") && !candidate.toLowerCase().startsWith("https://")) {
+    candidate = `https://${candidate}`;
+  }
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    if (!url.hostname || !url.hostname.includes(".")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function shouldValidateUrl(sectionKey: string, fieldKey: string, fieldType: string) {
+  if (fieldType === "url") return true;
+  if (sectionKey === "personal-information" && (fieldKey === "linkedin" || fieldKey === "github")) {
+    return true;
+  }
+  return false;
+}
+
+function severityRank(severity: "info" | "warning" | "error") {
+  if (severity === "error") return 3;
+  if (severity === "warning") return 2;
+  return 1;
+}
+
+function worstSeverity(analysis?: EntryAnalysis) {
+  const severities: ("info" | "warning" | "error")[] = [];
+  if (analysis?.entryIssues?.length) {
+    severities.push(...analysis.entryIssues.map((issue) => issue.severity));
+  }
+  if (analysis?.fieldIssues) {
+    for (const issues of Object.values(analysis.fieldIssues)) {
+      severities.push(...issues.map((issue) => issue.severity));
+    }
+  }
+  return severities.reduce<"info" | "warning" | "error">(
+    (acc, severity) => (severityRank(severity) > severityRank(acc) ? severity : acc),
+    "info",
+  );
+}
+
+function entryToneBorder(severity: "info" | "warning" | "error") {
+  if (severity === "error") return "border-rose-300 dark:border-rose-700/70";
+  if (severity === "warning") return "border-amber-300 dark:border-amber-700/70";
+  return "border-sky-300 dark:border-sky-700/70";
+}
+
+function issueCount(analysis?: EntryAnalysis) {
+  let count = analysis?.entryIssues?.length ?? 0;
+  if (analysis?.fieldIssues) {
+    for (const issues of Object.values(analysis.fieldIssues)) {
+      count += issues.length;
+    }
+  }
+  return count;
+}
+
 export function DraggableEntry({
   entryId,
   entryIndex,
@@ -73,7 +127,7 @@ export function DraggableEntry({
   sectionIndex,
   control,
   register,
-  onSave,
+  analysis,
   entryTitle,
   isExpanded,
   enableDrag,
@@ -88,45 +142,16 @@ export function DraggableEntry({
     enableDrag,
     onMove,
   });
-  const entryValues =
-    useWatch({
-      control,
-      name: `sections.${sectionIndex}.items.${entryIndex}.values`,
-    }) ?? {};
 
-  const handleSave = () => {
-    const requiredLabels = REQUIRED_FIELDS_BY_SECTION[section.title] ?? [];
-    if (requiredLabels.length === 0) {
-      onSave();
-      return;
-    }
-
-    const requiredKeys = section.fields
-      .filter((field) => requiredLabels.includes(field.label))
-      .map((field) => field.key);
-    const missingLabels = requiredKeys
-      .filter((key) => !entryValues?.[key]?.trim())
-      .map(
-        (key) => section.fields.find((field) => field.key === key)?.label ?? key,
-      );
-
-    if (missingLabels.length > 0) {
-      if (!isExpanded) {
-        onToggle(entryId);
-      }
-      toast.error(
-        `Please fill required fields: ${missingLabels.join(", ")}.`,
-      );
-      return;
-    }
-
-    onSave();
-  };
+  const issues = issueCount(analysis);
+  const severity = issues > 0 ? worstSeverity(analysis) : "info";
 
   return (
     <div
       ref={ref}
-      className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/70"
+      className={`rounded-lg border bg-white shadow-sm dark:bg-slate-900/70 ${
+        issues > 0 ? entryToneBorder(severity) : "border-slate-200 dark:border-slate-800"
+      }`}
       style={{ opacity: isDragging ? 0.6 : 1 }}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3">
@@ -143,15 +168,11 @@ export function DraggableEntry({
           <p className="text-sm text-slate-900 dark:text-slate-100">{entryTitle}</p>
         </button>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600/10 px-1.5 py-1 text-xs text-emerald-800 hover:bg-emerald-600/15 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:bg-emerald-500/25"
-          >
-            <Save className="h-3 w-3" />
-            Save
-          </button>
-          <span className="h-4 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
+          {issues > 0 ? (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
+              {issues} issue{issues === 1 ? "" : "s"}
+            </span>
+          ) : null}
           {allowDelete ? (
             <button
               type="button"
@@ -169,10 +190,10 @@ export function DraggableEntry({
           } overflow-hidden`}
       >
         <div className="grid gap-3 border-t border-slate-200 px-4 py-4 md:grid-cols-12 dark:border-slate-800">
-          {section.fields.map((fieldDef) => (
-            <label
-              key={fieldDef.key}
-              className={`flex flex-col gap-2 text-sm text-slate-800 dark:text-slate-200 ${fieldDef.fullWidth
+            {section.fields.map((fieldDef) => {
+              const fieldIssues = analysis?.fieldIssues?.[fieldDef.key] ?? [];
+              const hasIssues = fieldIssues.length > 0;
+              const gridSpan = fieldDef.fullWidth
                 ? "md:col-span-12"
                 : fieldDef.width === "1/4"
                   ? "md:col-span-3"
@@ -180,39 +201,58 @@ export function DraggableEntry({
                     ? "md:col-span-4"
                     : fieldDef.width === "1/2"
                       ? "md:col-span-6"
-                      : "md:col-span-12"
-                }`}
-            >
-              <span>{fieldDef.label}</span>
-              {fieldDef.editor === "quill" ? (
-                <Controller
-                  control={control}
-                  name={`sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`}
-                  render={({ field }) => (
-                    <div className="resume-quill rounded-md border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-                      <ReactQuill
-                        theme="snow"
-                        modules={quillModules}
-                        formats={[...quillFormats]}
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                        placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
-                      />
-                    </div>
+                      : "md:col-span-12";
+
+              return (
+                <label
+                  key={fieldDef.key}
+                  className={`flex flex-col gap-2 text-sm text-slate-800 dark:text-slate-200 ${gridSpan}`}
+                >
+                  <span className={hasIssues ? "font-semibold" : ""}>{fieldDef.label}</span>
+                  {fieldDef.editor === "quill" ? (
+                    <Controller
+                      control={control}
+                      name={`sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`}
+                      render={({ field }) => (
+                        <div
+                          className={`resume-quill rounded-md border bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 ${hasIssues
+                            ? "border-amber-300 dark:border-amber-600/60"
+                            : "border-slate-200 dark:border-slate-700"
+                            }`}
+                        >
+                          <ReactQuill
+                            theme="snow"
+                            modules={quillModules}
+                            formats={[...quillFormats]}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
+                          />
+                        </div>
+                      )}
+                    />
+                  ) : (
+                    <input
+                      type={fieldDef.type}
+                      className={`rounded-md border bg-white px-3 py-2 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100 ${hasIssues
+                        ? "border-amber-300 focus:border-amber-400 focus:outline-none dark:border-amber-600/60"
+                        : "border-slate-300 dark:border-slate-700"
+                        }`}
+                      placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
+                      {...register(`sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`, {
+                        validate:
+                          shouldValidateUrl(section.key, fieldDef.key, fieldDef.type)
+                            ? (value) =>
+                                typeof value !== "string" || !value.trim() || isValidUrl(value)
+                                  ? true
+                                  : "Enter a valid URL (prefer https://...)"
+                            : undefined,
+                      })}
+                    />
                   )}
-                />
-              ) : (
-                <input
-                  type={fieldDef.type}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder={getPlaceholder(fieldDef.label, fieldDef.editor)}
-                  {...register(
-                    `sections.${sectionIndex}.items.${entryIndex}.values.${fieldDef.key}`,
-                  )}
-                />
-              )}
-            </label>
-          ))}
+                </label>
+              );
+            })}
         </div>
       </div>
     </div>

@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+import re
 import uuid
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from urllib.parse import urlparse
 
 from resume_schema import (
     ALLOWED_SECTION_KEYS,
     RESUME_SECTIONS,
     SECTION_FIELD_KEYS,
     SINGLE_ENTRY_SECTION_KEYS,
+    EXTRA_URL_FIELD_KEYS,
+    URL_FIELD_KEYS,
 )
 
 
@@ -68,6 +72,9 @@ class ResumeFormValues(BaseModel):
                 )
 
             allowed_fields = set(SECTION_FIELD_KEYS[section.sectionKey])
+            url_fields = set(URL_FIELD_KEYS.get(section.sectionKey, ())) | set(
+                EXTRA_URL_FIELD_KEYS.get(section.sectionKey, ())
+            )
             for item in section.items:
                 if not item.id or not item.id.strip():
                     raise ValueError(f"Section {section.sectionKey} has an item with an empty id")
@@ -87,7 +94,64 @@ class ResumeFormValues(BaseModel):
                         f"Section {section.sectionKey} is missing field key(s): {sorted(missing_fields)}"
                     )
 
+                for url_field_key in url_fields:
+                    raw = item.values.get(url_field_key, "")
+                    value = raw.strip() if isinstance(raw, str) else ""
+                    if not value:
+                        continue
+                    normalized = _normalize_url_for_field(section.sectionKey, url_field_key, value)
+                    if not _is_valid_url(normalized):
+                        # Be forgiving: store invalid URL-like values as empty strings.
+                        item.values[url_field_key] = ""
+                        continue
+                    item.values[url_field_key] = normalized
+
         return self
+
+
+def _is_valid_url(value: str) -> bool:
+    candidate = value.strip()
+    if not candidate:
+        return True
+    if not candidate.lower().startswith(("http://", "https://")):
+        candidate = "https://" + candidate
+    parsed = urlparse(candidate)
+    if parsed.scheme not in ("http", "https"):
+        return False
+    if not parsed.netloc:
+        return False
+    # Basic sanity: require at least a dot in the hostname.
+    host = parsed.netloc.split("@")[-1].split(":")[0]
+    if "." not in host:
+        return False
+    return True
+
+
+_HANDLE_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,98}[A-Za-z0-9])?$")
+
+
+def _normalize_url_for_field(section_key: str, field_key: str, value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        return ""
+
+    candidate = trimmed.strip("()[]{}<>\"'")
+    candidate = candidate.strip()
+
+    if candidate.lower().startswith(("http://", "https://")):
+        return candidate
+
+    # Accept common handle inputs for GitHub/LinkedIn and expand into URLs.
+    if section_key == "personal-information" and field_key in ("github", "linkedin"):
+        handle = candidate.lstrip("@").strip()
+        if _HANDLE_RE.match(handle):
+            if field_key == "github":
+                return f"https://github.com/{handle}"
+            return f"https://linkedin.com/in/{handle}"
+
+    if not candidate.lower().startswith(("http://", "https://")):
+        candidate = "https://" + candidate
+    return candidate
 
 
 class ResumeImportResponse(ResumeFormValues):
@@ -185,6 +249,9 @@ def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
     for section in RESUME_SECTIONS:
         section_key = section.key
         allowed_fields = set(SECTION_FIELD_KEYS[section_key])
+        url_fields = set(URL_FIELD_KEYS.get(section_key, ())) | set(
+            EXTRA_URL_FIELD_KEYS.get(section_key, ())
+        )
         incoming_section = incoming_by_key.get(section_key, {})
         incoming_items = (
             incoming_section.get("items")
@@ -214,7 +281,10 @@ def upgrade_resume_form_values(data: Any) -> dict[str, Any]:
             upgraded_values: dict[str, str] = {}
             for field_key in SECTION_FIELD_KEYS[section_key]:
                 raw_value = values.get(field_key)
-                upgraded_values[field_key] = _coerce_scalar_to_string(raw_value)
+                coerced = _coerce_scalar_to_string(raw_value)
+                if field_key in url_fields and coerced.strip():
+                    coerced = _normalize_url_for_field(section_key, field_key, coerced)
+                upgraded_values[field_key] = coerced
 
             # If the client/LLM sent unknown keys, we intentionally drop them.
             unknown_keys = set(values.keys()) - allowed_fields

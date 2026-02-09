@@ -1,8 +1,11 @@
+import uuid
+
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session as DBSession
 
 from pdf_import import MAX_PDF_BYTES, import_resume_from_pdf_bytes
+from resume_analysis import ResumeAnalysisResponse, analyze_resume_snapshot, openai_analysis_model
 from resume_models import (
     ResumeFormValues,
     ResumeFormValuesInput,
@@ -16,6 +19,7 @@ from resume_models import (
 from resume_schema import resume_schema_for_client
 from session_logic import (
     Resume,
+    ResumeAnalysis,
     SessionCreate,
     SessionResponse,
     UserSession,
@@ -208,11 +212,106 @@ async def save_resume(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found.")
 
-    validated = validate_resume_form_values(payload.model_dump())
+    try:
+        validated = validate_resume_form_values(payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
     row.normalized_json = validated.model_dump()
     db.add(row)
     db.commit()
     return ResumeImportResponse(resume_id=row.id, **row.normalized_json)
+
+
+@app.post("/resumes/{resume_id}/analysis", response_model=ResumeAnalysisResponse)
+async def analyze_resume(
+    resume_id: str,
+    session: UserSession = Depends(require_session_token),
+    db: DBSession = Depends(get_db),
+):
+    row = (
+        db.query(Resume)
+        .filter(Resume.id == resume_id, Resume.user_email == session.email)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found.")
+    if row.normalized_json is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Resume is not ready yet. Please re-import.",
+        )
+
+    snapshot = upgrade_resume_form_values(row.normalized_json)
+    analysis_id = str(uuid.uuid4())
+    analysis_entry = ResumeAnalysis(
+        id=analysis_id,
+        resume_id=row.id,
+        user_email=session.email,
+        source_json=snapshot,
+        analysis_json=None,
+        model=openai_analysis_model(),
+    )
+    db.add(analysis_entry)
+    db.commit()
+    db.refresh(analysis_entry)
+
+    try:
+        analysis = analyze_resume_snapshot(session.openai_key, snapshot)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    analysis_entry.analysis_json = analysis.model_dump()
+    analysis_entry.model = openai_analysis_model()
+    db.add(analysis_entry)
+    db.commit()
+    db.refresh(analysis_entry)
+
+    return ResumeAnalysisResponse(
+        analysis_id=analysis_entry.id,
+        created_at=analysis_entry.created_at,
+        model=analysis_entry.model,
+        **analysis.model_dump(),
+    )
+
+
+@app.get("/resumes/{resume_id}/analysis/latest", response_model=ResumeAnalysisResponse)
+async def get_latest_resume_analysis(
+    resume_id: str,
+    session: UserSession = Depends(require_session_token),
+    db: DBSession = Depends(get_db),
+):
+    row = (
+        db.query(ResumeAnalysis)
+        .filter(
+            ResumeAnalysis.resume_id == resume_id,
+            ResumeAnalysis.user_email == session.email,
+            ResumeAnalysis.analysis_json.isnot(None),
+        )
+        .order_by(ResumeAnalysis.created_at.desc())
+        .first()
+    )
+    if row is None or not isinstance(row.analysis_json, dict):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No analysis found for this resume.",
+        )
+    return ResumeAnalysisResponse(
+        analysis_id=row.id,
+        created_at=row.created_at,
+        model=row.model,
+        **row.analysis_json,
+    )
 
 
 @app.delete("/resumes/{resume_id}")

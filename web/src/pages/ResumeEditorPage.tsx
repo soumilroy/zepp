@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Save, Sparkles, Trash2 } from "lucide-react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useForm, useFieldArray } from "react-hook-form";
 import { DndProvider } from "react-dnd";
@@ -10,7 +10,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import AppHeader from "../components/AppHeader";
 import FullScreenLoadingOverlay from "../components/FullScreenLoadingOverlay";
 import {
+  useAnalyzeResumeMutation,
   useDeleteResumeMutation,
+  useLatestResumeAnalysisQuery,
   useResumeQuery,
   useResumeSchemaQuery,
   useSaveResumeMutation,
@@ -23,7 +25,42 @@ import {
   buildResumeSectionMap,
   buildResumeSections,
 } from "./home/resume";
-import type { FormValues } from "./home/types";
+import type { EntryAnalysis, FormValues, SectionAnalysis } from "./home/types";
+import type { ResumeAnalysisIssue, ResumeAnalysisResponse } from "../api/types";
+
+function indexAnalysis(analysis: ResumeAnalysisResponse | undefined) {
+  if (!analysis) {
+    return {} as Record<string, SectionAnalysis>;
+  }
+
+  const bySection: Record<string, SectionAnalysis> = {};
+
+  for (const section of analysis.sections) {
+    const entries: Record<string, EntryAnalysis> = {};
+    const sectionIssues: ResumeAnalysisIssue[] = [];
+
+    for (const issue of section.issues) {
+      if (!issue.itemId) {
+        sectionIssues.push(issue);
+        continue;
+      }
+      const entry = (entries[issue.itemId] ??= { entryIssues: [], fieldIssues: {} });
+      if (!issue.fieldKey) {
+        entry.entryIssues.push(issue);
+        continue;
+      }
+      (entry.fieldIssues[issue.fieldKey] ??= []).push(issue);
+    }
+
+    bySection[section.sectionKey] = {
+      summary: section.summary,
+      sectionIssues,
+      entries,
+    };
+  }
+
+  return bySection;
+}
 
 export default function ResumeEditorPage() {
   const sessionToken = useSessionToken();
@@ -32,9 +69,12 @@ export default function ResumeEditorPage() {
   const resumeId = params.resumeId ?? null;
   const resumeSchemaQuery = useResumeSchemaQuery();
   const resumeQuery = useResumeQuery(sessionToken ?? undefined, resumeId);
+  const latestAnalysisQuery = useLatestResumeAnalysisQuery(sessionToken ?? undefined, resumeId);
+  const analyzeResume = useAnalyzeResumeMutation();
   const saveResume = useSaveResumeMutation();
   const deleteResume = useDeleteResumeMutation();
   const queryClient = useQueryClient();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { control, handleSubmit, register, reset } = useForm<FormValues>({
     defaultValues: { sections: [] },
@@ -65,6 +105,11 @@ export default function ResumeEditorPage() {
     [fields, resumeSectionMap],
   );
 
+  const analysisBySection = useMemo(
+    () => indexAnalysis(latestAnalysisQuery.data),
+    [latestAnalysisQuery.data],
+  );
+
   useEffect(() => {
     if (resumeQuery.data) {
       reset({ sections: resumeQuery.data.sections } as unknown as FormValues);
@@ -82,7 +127,19 @@ export default function ResumeEditorPage() {
     if (resumeSchemaQuery.isError) {
       toast.error(resumeSchemaQuery.error.message);
     }
-  }, [resumeQuery.error, resumeQuery.isError, resumeSchemaQuery.error, resumeSchemaQuery.isError]);
+    if (latestAnalysisQuery.isError) {
+      if (latestAnalysisQuery.error.message !== "No analysis found for this resume.") {
+        toast.error(latestAnalysisQuery.error.message);
+      }
+    }
+  }, [
+    latestAnalysisQuery.error,
+    latestAnalysisQuery.isError,
+    resumeQuery.error,
+    resumeQuery.isError,
+    resumeSchemaQuery.error,
+    resumeSchemaQuery.isError,
+  ]);
 
   const onSubmit = (data: FormValues) => {
     console.log("Resume form values", data);
@@ -135,18 +192,47 @@ export default function ResumeEditorPage() {
     });
   });
 
-  const onEntryDelete = handleSubmit((data) => {
-    persistEntries(data, {
-      loadingMessage: "Deleting entry…",
-      successMessage: "Entry deleted",
-      successVariant: "warning",
-    });
-  });
-
   const onSaveAll = () => onEntrySave();
-  const handleEntryDelete = (_sectionIndex: number, _entryIndex: number) => {
-    onEntryDelete();
-  };
+
+  const onAnalyze = handleSubmit((data) => {
+    if (!sessionToken || !resumeId) {
+      toast.error("Please create a session first.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    const toastId = toast.loading("Saving snapshot…");
+
+    saveResume.mutate(
+      { token: sessionToken, resumeId, body: { sections: data.sections } },
+      {
+        onSuccess: () => {
+          toast.loading("Analyzing…", { id: toastId });
+          analyzeResume.mutate(
+            { token: sessionToken, resumeId },
+            {
+              onSuccess: (analysis) => {
+                toast.success("Analysis complete", { id: toastId });
+                queryClient.setQueryData(
+                  ["resume-analysis-latest", sessionToken, resumeId],
+                  analysis,
+                );
+                setIsAnalyzing(false);
+              },
+              onError: (error) => {
+                toast.error(error.message, { id: toastId });
+                setIsAnalyzing(false);
+              },
+            },
+          );
+        },
+        onError: (error) => {
+          toast.error(error.message, { id: toastId });
+          setIsAnalyzing(false);
+        },
+      },
+    );
+  });
 
   const onDelete = () => {
     if (!sessionToken || !resumeId) {
@@ -176,10 +262,17 @@ export default function ResumeEditorPage() {
     <main className="min-h-screen">
       <AppHeader />
       <FullScreenLoadingOverlay
-        open={resumeSchemaQuery.isFetching || resumeQuery.isFetching || deleteResume.isPending}
+        open={
+          resumeSchemaQuery.isFetching ||
+          resumeQuery.isFetching ||
+          deleteResume.isPending ||
+          isAnalyzing
+        }
         title={
           deleteResume.isPending
             ? "Deleting resume…"
+            : isAnalyzing
+              ? "Analyzing resume…"
             : resumeSchemaQuery.isFetching
               ? "Loading editor…"
               : "Loading resume…"
@@ -187,6 +280,8 @@ export default function ResumeEditorPage() {
         message={
           deleteResume.isPending
             ? "Removing your resume. Please don’t close this tab."
+            : isAnalyzing
+              ? "Running recruiter-style checks and highlighting suggestions."
             : "Loading your resume data. Please don’t close this tab."
         }
       />
@@ -201,6 +296,42 @@ export default function ResumeEditorPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSaveAll}
+              disabled={
+                resumeQuery.isFetching ||
+                resumeSchemaQuery.isFetching ||
+                saveResume.isPending ||
+                deleteResume.isPending ||
+                analyzeResume.isPending ||
+                isAnalyzing
+              }
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" aria-hidden="true" />
+              {saveResume.isPending ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={onAnalyze}
+              disabled={
+                resumeQuery.isFetching ||
+                resumeSchemaQuery.isFetching ||
+                saveResume.isPending ||
+                deleteResume.isPending ||
+                analyzeResume.isPending ||
+                isAnalyzing
+              }
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              {isAnalyzing ? "Analyzing…" : "Analyze"}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -242,8 +373,8 @@ export default function ResumeEditorPage() {
                   section={section}
                   control={control}
                   register={register}
-                  onSave={onEntrySave}
-                  onDelete={handleEntryDelete}
+                  analysis={analysisBySection[section.key]}
+                  analysisId={latestAnalysisQuery.data?.analysis_id}
                 />
               ) : null,
             )}

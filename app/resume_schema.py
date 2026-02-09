@@ -94,7 +94,7 @@ _RAW_STRUCTURE: list[dict] = [
         "entry_type": "multiple",
         "fields": [
             {"label": "Title", "type": "text"},
-            {"label": "URL", "type": "text"},
+            {"label": "URL", "type": "url"},
             {"label": "Description", "type": "text"},
         ],
     },
@@ -176,6 +176,14 @@ ALLOWED_SECTION_KEYS: set[str] = set(SECTION_BY_KEY.keys())
 SECTION_FIELD_KEYS: dict[str, tuple[str, ...]] = {
     section.key: tuple(field.key for field in section.fields)
     for section in RESUME_SECTIONS
+}
+URL_FIELD_KEYS: dict[str, tuple[str, ...]] = {
+    section.key: tuple(field.key for field in section.fields if field.field_type == "url")
+    for section in RESUME_SECTIONS
+}
+EXTRA_URL_FIELD_KEYS: dict[str, tuple[str, ...]] = {
+    # These are stored as "text" but should still contain URL-like values.
+    "personal-information": ("linkedin", "github"),
 }
 SINGLE_ENTRY_SECTION_KEYS: set[str] = {
     section.key for section in RESUME_SECTIONS if section.entry_type == "single"

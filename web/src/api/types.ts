@@ -66,3 +66,41 @@ export type ResumeSchemaSection = {
 export type ResumeSchemaResponse = {
   sections: ResumeSchemaSection[];
 };
+
+export type ResumeAnalysisIssue = {
+  severity: "info" | "warning" | "error";
+  category:
+    | "typo"
+    | "grammar"
+    | "tone"
+    | "clarity"
+    | "format"
+    | "consistency"
+    | "impact"
+    | "ats"
+    | "other";
+  message: string;
+  suggestion: string;
+  sectionKey: string;
+  itemId: string | null;
+  fieldKey: string | null;
+  replacement: string | null;
+};
+
+export type ResumeSectionAnalysis = {
+  sectionKey: string;
+  summary: string;
+  issues: ResumeAnalysisIssue[];
+};
+
+export type ResumeAnalysisResponse = {
+  analysis_id: string;
+  created_at: string;
+  model: string;
+  designation: string;
+  overall_summary: string;
+  recruiter_feedback: string;
+  strengths: string[];
+  risks: string[];
+  sections: ResumeSectionAnalysis[];
+};

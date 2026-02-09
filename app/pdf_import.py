@@ -39,6 +39,7 @@ Normalization guidance:
 - Preserve original casing for names/companies where possible.
 - Prefer ISO-like dates when clear (YYYY-MM or YYYY-MM-DD). Otherwise keep the original string.
 - For rich text "Description" fields, output plain text with newlines and bullets as "-" lines.
+- For URL fields (e.g., LinkedIn, GitHub, Portfolio URL), output a valid URL. Prefer full URLs starting with "https://".
 """
 
 
