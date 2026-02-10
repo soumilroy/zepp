@@ -36,6 +36,18 @@ class Resume(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+class ResumeAnalysis(Base):
+    __tablename__ = "resume_analyses"
+
+    id = Column(String, primary_key=True, index=True)
+    resume_id = Column(String, nullable=False, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    source_json = Column(JSON, nullable=False)
+    analysis_json = Column(JSON, nullable=True)
+    model = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
 def new_resume_id() -> str:
     return str(uuid.uuid4())
 

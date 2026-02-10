@@ -26,7 +26,8 @@ Output requirements (CRITICAL):
 - Output MUST match the provided schema exactly:
   - Top-level object: {"sections": [...]}
   - "sections" MUST include every section exactly once, in the exact order shown in the schema.
-  - Each section object MUST be: {"sectionKey": string, "items": [{"values": {...}} , ...]}
+  - Each section object MUST be: {"sectionKey": string, "items": [{"id": string, "values": {...}} , ...]}
+  - For every item, "id" MUST be present and MUST be the empty string "" (the server will assign IDs).
   - For every item, "values" MUST contain ALL field keys for that section.
   - ALL values MUST be strings. If the source is numeric (e.g., GPA), output it as a string like "3.8" (not a JSON number).
   - If a value is unknown/missing, set it to the empty string "".
@@ -38,6 +39,7 @@ Normalization guidance:
 - Preserve original casing for names/companies where possible.
 - Prefer ISO-like dates when clear (YYYY-MM or YYYY-MM-DD). Otherwise keep the original string.
 - For rich text "Description" fields, output plain text with newlines and bullets as "-" lines.
+- For URL fields (e.g., LinkedIn, GitHub, Portfolio URL), output a valid URL. Prefer full URLs starting with "https://".
 """
 
 

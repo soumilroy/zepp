@@ -8,7 +8,8 @@ import {
 import { Plus } from "lucide-react";
 
 import { buildPrefilledValues } from "../resume";
-import type { FormValues, ResumeSection } from "../types";
+import type { FormValues, ResumeSection, SectionAnalysis } from "../types";
+import { newEntryId } from "../entryId";
 import { DraggableEntry } from "./DraggableEntry";
 import { Button } from "../../../components/ui/button";
 
@@ -17,7 +18,8 @@ export type SectionEntriesProps = {
   sectionIndex: number;
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
-  onSave: () => void;
+  analysis?: SectionAnalysis;
+  analysisId?: string;
 };
 
 export function SectionEntries({
@@ -25,11 +27,13 @@ export function SectionEntries({
   sectionIndex,
   control,
   register,
-  onSave,
+  analysis,
+  analysisId,
 }: SectionEntriesProps) {
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: `sections.${sectionIndex}.items`,
+    keyName: "rhfId",
   });
   const watchedItems =
     useWatch({
@@ -46,6 +50,14 @@ export function SectionEntries({
       setIsOpen(true);
     }
   }, [fields.length, isOpen]);
+
+  useEffect(() => {
+    if (!analysisId) return;
+    const ids = fields.map((field) => field.id).filter(Boolean) as string[];
+    if (ids.length === 0) return;
+    setIsOpen(true);
+    setExpandedIds(ids);
+  }, [analysisId, fields]);
 
   useEffect(() => {
     if (fields.length > prevLengthRef.current) {
@@ -65,7 +77,7 @@ export function SectionEntries({
   const handleAdd = () => {
     setIsOpen(true);
     if (isAddDisabled) return;
-    append({ values: buildPrefilledValues(section) });
+    append({ id: newEntryId(), values: buildPrefilledValues(section) });
   };
 
   const toggleExpanded = (id: string) => {
@@ -74,11 +86,15 @@ export function SectionEntries({
     );
   };
 
+  const handleRemove = (itemIndex: number, entryId: string) => {
+    setExpandedIds((prev) => prev.filter((entry) => entry !== entryId));
+    remove(itemIndex);
+  };
+
   return (
-    <div className="mt-4">
-      <div className="flex flex-wrap items-center justify-between gap-3" />
+    <div>
       <div
-        className={`transition-[max-height] duration-300 ease-in-out ${isOpen ? "mt-4 max-h-[2000px]" : "mt-0 max-h-0"
+        className={`transition-[max-height] duration-300 ease-in-out ${isOpen ? "mt-2 max-h-[2000px]" : "mt-0 max-h-0"
           } overflow-hidden`}
       >
         <div className="flex flex-col gap-3">
@@ -86,7 +102,8 @@ export function SectionEntries({
             <p className="text-sm text-slate-600 dark:text-slate-500">No entries yet.</p>
           ) : (
             fields.map((field, itemIndex) => {
-              const isExpanded = expandedIds.includes(field.id);
+              const entryId = field.id;
+              const isExpanded = expandedIds.includes(entryId);
               const primaryKey = section.fields[0]?.key;
               const primaryValue = primaryKey
                 ? watchedItems[itemIndex]?.values?.[primaryKey]?.trim()
@@ -94,20 +111,20 @@ export function SectionEntries({
               const entryTitle = primaryValue || `${section.title} entry`;
               return (
                 <DraggableEntry
-                  key={field.id}
-                  entryId={field.id}
+                  key={entryId ?? field.rhfId}
+                  entryId={entryId}
                   entryIndex={itemIndex}
                   section={section}
                   sectionIndex={sectionIndex}
                   control={control}
                   register={register}
-                  onSave={onSave}
+                  analysis={analysis?.entries?.[entryId]}
                   entryTitle={entryTitle}
                   isExpanded={isExpanded}
                   enableDrag={!isSingleEntry}
                   allowDelete
                   onToggle={toggleExpanded}
-                  onRemove={remove}
+                  onRemove={() => handleRemove(itemIndex, entryId)}
                   onMove={move}
                 />
               );

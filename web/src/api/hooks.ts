@@ -6,11 +6,21 @@ import type {
   CreateSessionResponse,
   HealthResponse,
   LogoutResponse,
+  ResumeAnalysisResponse,
   ResumeDeleteResponse,
   ResumeImportResponse,
   ResumeListResponse,
+  ResumeSchemaResponse,
   UserResponse,
 } from "./types";
+
+export function useResumeSchemaQuery() {
+  return useQuery({
+    queryKey: ["resume-schema"],
+    queryFn: () => apiRequest<ResumeSchemaResponse>("/resume/schema"),
+    staleTime: Infinity,
+  });
+}
 
 export function useProtectedStatusQuery(token?: string) {
   return useQuery({
@@ -101,5 +111,25 @@ export function useDeleteResumeMutation() {
         method: "DELETE",
         token,
       }),
+  });
+}
+
+export function useAnalyzeResumeMutation() {
+  return useMutation<ResumeAnalysisResponse, Error, { token: string; resumeId: string }>({
+    mutationFn: ({ token, resumeId }) =>
+      apiRequest<ResumeAnalysisResponse>(`/resumes/${resumeId}/analysis`, {
+        method: "POST",
+        token,
+      }),
+  });
+}
+
+export function useLatestResumeAnalysisQuery(token: string | undefined, resumeId: string | null) {
+  return useQuery({
+    queryKey: ["resume-analysis-latest", token, resumeId],
+    queryFn: () =>
+      apiRequest<ResumeAnalysisResponse>(`/resumes/${resumeId}/analysis/latest`, { token }),
+    enabled: Boolean(token && resumeId),
+    retry: false,
   });
 }

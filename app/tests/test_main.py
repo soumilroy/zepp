@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from main import app
-from session_logic import Base, Resume, UserSession, get_db
+from session_logic import Base, Resume, ResumeAnalysis, UserSession, get_db
 
 TEST_DATABASE_URL = "sqlite:///./test_app.db"
 
@@ -284,9 +284,10 @@ def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypat
             "last-name": "Smith",
             "email": "alice@example.com",
             "phone": "555-0100",
+            "github": "alice-smith",
         }
     )
-    llm_output["sections"][0]["items"] = [{"values": personal_values}]
+    llm_output["sections"][0]["items"] = [{"id": "", "values": personal_values}]
 
     monkeypatch.setattr(
         pdf_import,
@@ -304,12 +305,16 @@ def test_import_resume_pdf_returns_parsed_resume(client, auth_headers, monkeypat
     body = response.json()
     uuid.UUID(body["resume_id"])
     assert body["sections"][0]["sectionKey"] == "personal-information"
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
     assert body["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
+    assert body["sections"][0]["items"][0]["values"]["github"] == "https://github.com/alice-smith"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
         assert stored.user_email == "tester@example.com"
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
         assert stored.normalized_json["sections"][0]["items"][0]["values"]["email"] == "alice@example.com"
+        assert stored.normalized_json["sections"][0]["items"][0]["values"]["github"] == "https://github.com/alice-smith"
 
 
 def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_headers, monkeypatch):
@@ -334,7 +339,7 @@ def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_header
             "gpa": 3.8,  # LLM sometimes emits as a JSON number
         }
     )
-    llm_output["sections"][1]["items"] = [{"values": education_values}]
+    llm_output["sections"][1]["items"] = [{"id": "", "values": education_values}]
 
     monkeypatch.setattr(
         pdf_import,
@@ -351,11 +356,13 @@ def test_import_resume_pdf_coerces_numeric_values_to_strings(client, auth_header
     assert response.status_code == 200
     body = response.json()
     uuid.UUID(body["resume_id"])
+    uuid.UUID(body["sections"][1]["items"][0]["id"])
     assert body["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id=body["resume_id"]).one()
         assert stored.user_email == "tester@example.com"
+        uuid.UUID(stored.normalized_json["sections"][1]["items"][0]["id"])
         assert stored.normalized_json["sections"][1]["items"][0]["values"]["gpa"] == "3.8"
 
 
@@ -388,8 +395,43 @@ def test_get_resume_returns_stored_json(client, auth_headers):
     assert body["sections"][0]["sectionKey"] == "personal-information"
 
 
+def test_get_resume_upgrades_older_json_missing_new_fields(client, auth_headers):
+    # Simulate an older resume payload missing a newly-added field.
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
+
+    stored_json = build_empty_resume_form_values()
+    personal = build_empty_values_for_section("personal-information")
+    personal.update(
+        {
+            "first-name": "Alice",
+            "last-name": "Smith",
+            "email": "alice@example.com",
+        }
+    )
+    personal.pop("designation", None)
+    stored_json["sections"][0]["items"] = [{"values": personal}]
+
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    response = client.get("/resumes/resume-1", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
+    assert body["sections"][0]["items"][0]["values"]["designation"] == ""
+
+    with TestingSessionLocal() as db:
+        stored = db.query(Resume).filter_by(id="resume-1").one()
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
+        assert stored.normalized_json["sections"][0]["items"][0]["values"]["designation"] == ""
+
+
 def test_save_resume_updates_stored_json(client, auth_headers):
     from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
 
     stored_json = build_empty_resume_form_values()
     with TestingSessionLocal() as db:
@@ -406,10 +448,12 @@ def test_save_resume_updates_stored_json(client, auth_headers):
     assert response.status_code == 200
     body = response.json()
     assert body["resume_id"] == "resume-1"
+    uuid.UUID(body["sections"][0]["items"][0]["id"])
     assert body["sections"][0]["items"][0]["values"]["first-name"] == "Alice"
 
     with TestingSessionLocal() as db:
         stored = db.query(Resume).filter_by(id="resume-1").one()
+        uuid.UUID(stored.normalized_json["sections"][0]["items"][0]["id"])
         assert stored.normalized_json["sections"][0]["items"][0]["values"]["last-name"] == "Smith"
 
 
@@ -425,3 +469,103 @@ def test_delete_resume_removes_row(client, auth_headers):
 
     with TestingSessionLocal() as db:
         assert db.query(Resume).filter_by(id="resume-1").count() == 0
+
+
+def test_analyze_resume_creates_analysis_row_and_returns_section_feedback(client, auth_headers, monkeypatch):
+    import resume_analysis
+    from resume_schema import build_empty_resume_form_values, build_empty_values_for_section
+    import uuid
+
+    stored_json = build_empty_resume_form_values()
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    next_json = build_empty_resume_form_values()
+    personal = build_empty_values_for_section("personal-information")
+    personal.update({"first-name": "Alice", "last-name": "Smith", "designation": "Software Engineer"})
+    next_json["sections"][0]["items"] = [{"values": personal}]
+
+    saved = client.put("/resumes/resume-1", headers=auth_headers, json=next_json)
+    assert saved.status_code == 200
+    saved_body = saved.json()
+    item_id = saved_body["sections"][0]["items"][0]["id"]
+    uuid.UUID(item_id)
+
+    fake_analysis = {
+        "designation": "Software Engineer",
+        "overall_summary": "Solid baseline resume; improve impact and consistency.",
+        "recruiter_feedback": "Strengthen bullets with metrics and tighten tense consistency.",
+        "strengths": ["Clear experience section", "Relevant designation"],
+        "risks": ["Low quantified impact"],
+        "sections": [
+            {
+                "sectionKey": "personal-information",
+                "summary": "Personal info is mostly complete.",
+                "issues": [
+                    {
+                        "severity": "warning",
+                        "category": "tone",
+                        "message": "Designation is generic; consider specialization.",
+                        "suggestion": "Use a more specific title aligned to your target role (e.g., Backend Software Engineer).",
+                        "sectionKey": "personal-information",
+                        "itemId": item_id,
+                        "fieldKey": "designation",
+                        "replacement": "Backend Software Engineer",
+                    }
+                ],
+            }
+        ],
+    }
+
+    monkeypatch.setattr(
+        resume_analysis,
+        "call_openai_for_resume_analysis",
+        lambda _key, _resume_values: fake_analysis,
+    )
+
+    response = client.post("/resumes/resume-1/analysis", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    uuid.UUID(body["analysis_id"])
+    assert body["designation"] == "Software Engineer"
+    assert body["sections"][0]["sectionKey"] == "personal-information"
+    assert body["sections"][0]["issues"][0]["fieldKey"] == "designation"
+    assert body["sections"][0]["issues"][0]["itemId"] == item_id
+
+    with TestingSessionLocal() as db:
+        stored = db.query(ResumeAnalysis).filter_by(id=body["analysis_id"]).one()
+        assert stored.resume_id == "resume-1"
+        assert stored.user_email == "tester@example.com"
+        assert isinstance(stored.source_json, dict)
+        assert isinstance(stored.analysis_json, dict)
+
+
+def test_get_latest_resume_analysis_returns_analysis(client, auth_headers, monkeypatch):
+    import resume_analysis
+    from resume_schema import build_empty_resume_form_values
+
+    stored_json = build_empty_resume_form_values()
+    with TestingSessionLocal() as db:
+        db.add(Resume(id="resume-1", user_email="tester@example.com", normalized_json=stored_json))
+        db.commit()
+
+    monkeypatch.setattr(
+        resume_analysis,
+        "call_openai_for_resume_analysis",
+        lambda _key, _resume_values: {
+            "designation": "",
+            "overall_summary": "ok",
+            "recruiter_feedback": "ok",
+            "strengths": [],
+            "risks": [],
+            "sections": [],
+        },
+    )
+
+    create = client.post("/resumes/resume-1/analysis", headers=auth_headers)
+    assert create.status_code == 200
+
+    latest = client.get("/resumes/resume-1/analysis/latest", headers=auth_headers)
+    assert latest.status_code == 200
+    assert latest.json()["analysis_id"] == create.json()["analysis_id"]

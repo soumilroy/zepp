@@ -1,58 +1,60 @@
-import { resumeStructure } from "./resumeStructure";
 import type { FormValues, ResumeSection } from "./types";
+import type { ResumeSchemaResponse } from "../../api/types";
+import { resumeUiMeta } from "./uiMeta";
+import { Folder } from "lucide-react";
 
-export const toKey = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
+export function buildResumeSections(schema: ResumeSchemaResponse): ResumeSection[] {
+  return schema.sections.map((section) => {
+    const ui = resumeUiMeta[section.sectionKey];
+    return {
+      key: section.sectionKey,
+      title: section.title,
+      description: ui?.description ?? "",
+      entryType: section.entryType === "single" ? "single" : "multiple",
+      icon: ui?.icon ?? Folder,
+      fields: section.fields.map((field) => {
+        const fieldUi = ui?.fields?.[field.key];
+        return {
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          editor: fieldUi?.editor,
+          fullWidth: fieldUi?.fullWidth,
+          width: fieldUi?.width,
+        };
+      }),
+    };
+  });
+}
 
-export const resumeSections: ResumeSection[] = resumeStructure.map((section) => ({
-  key: toKey(section.title),
-  title: section.title,
-  description: section.description,
-  entryType: section.entry_type === "single" ? "single" : "multiple",
-  icon: section.icon,
-  fields: section.fields.map((field) => ({
-    key: toKey(field.label),
-    label: field.label,
-    type: field.type,
-    editor: field.editor === "quill" ? "quill" : undefined,
-    fullWidth: field.fullWidth === true,
-    width:
-      field.width === "1/2" ||
-      field.width === "1/3" ||
-      field.width === "1/4" ||
-      field.width === "full"
-        ? field.width
-        : undefined,
-  })),
-}));
+export function buildResumeSectionMap(resumeSections: ResumeSection[]) {
+  return Object.fromEntries(
+    resumeSections.map((section) => [section.key, section]),
+  ) as Record<string, ResumeSection>;
+}
 
-export const resumeSectionMap = Object.fromEntries(
-  resumeSections.map((section) => [section.key, section]),
-) as Record<string, ResumeSection>;
+export function buildDefaultValues(resumeSections: ResumeSection[]): FormValues {
+  return {
+    sections: resumeSections.map((section) => ({
+      sectionKey: section.key,
+      items: [],
+    })),
+  };
+}
 
-export const defaultValues: FormValues = {
-  sections: resumeSections.map((section) => ({
-    sectionKey: section.key,
-    items: [],
-  })),
-};
-
-export const buildPrefilledValues = (section: ResumeSection) => {
+export function buildPrefilledValues(section: ResumeSection) {
   const values: Record<string, string> = Object.fromEntries(
     section.fields.map((field) => [field.key, ""]),
   );
   return values;
-};
+}
 
-export const buildSummary = (
+export function buildSummary(
   section: ResumeSection,
   values?: Record<string, string>,
-) =>
+) {
   section.fields.slice(1, 3).map((field) => {
     const value = values?.[field.key]?.trim();
     return { label: field.label, value: value || "—" };
   });
-
+}

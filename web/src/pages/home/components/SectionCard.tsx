@@ -7,15 +7,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../../../components/ui/tooltip";
-import type { FormValues, ResumeSection } from "../types";
+import type { FormValues, ResumeSection, SectionAnalysis } from "../types";
 import { SectionEntries } from "./SectionEntries";
+import { SectionAnalysisPanel } from "./SectionAnalysisPanel";
 
 export type SectionCardProps = {
   section: ResumeSection;
   index: number;
   control: Control<FormValues>;
   register: UseFormRegister<FormValues>;
-  onSave: () => void;
+  analysis?: SectionAnalysis;
+  analysisId?: string;
 };
 
 export function SectionCard({
@@ -23,7 +25,8 @@ export function SectionCard({
   index,
   control,
   register,
-  onSave,
+  analysis,
+  analysisId,
 }: SectionCardProps) {
   const Icon = section.icon;
 
@@ -94,13 +97,19 @@ export function SectionCard({
           </TooltipProvider>
         </div>
       </div>
-      <SectionEntries
-        section={section}
-        sectionIndex={index}
-        control={control}
-        register={register}
-        onSave={onSave}
-      />
+      <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start">
+        <div>
+          <SectionEntries
+            section={section}
+            sectionIndex={index}
+            control={control}
+            register={register}
+            analysis={analysis}
+            analysisId={analysisId}
+          />
+        </div>
+        <SectionAnalysisPanel section={section} sectionIndex={index} control={control} analysis={analysis} />
+      </div>
     </div>
   );
 }

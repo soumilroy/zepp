@@ -52,6 +52,7 @@ _RAW_STRUCTURE: list[dict] = [
         "fields": [
             {"label": "First Name", "type": "text"},
             {"label": "Last Name", "type": "text"},
+            {"label": "Designation", "type": "text"},
             {"label": "Email", "type": "text"},
             {"label": "Phone", "type": "text"},
             {"label": "Address", "type": "text"},
@@ -93,7 +94,7 @@ _RAW_STRUCTURE: list[dict] = [
         "entry_type": "multiple",
         "fields": [
             {"label": "Title", "type": "text"},
-            {"label": "URL", "type": "text"},
+            {"label": "URL", "type": "url"},
             {"label": "Description", "type": "text"},
         ],
     },
@@ -176,6 +177,14 @@ SECTION_FIELD_KEYS: dict[str, tuple[str, ...]] = {
     section.key: tuple(field.key for field in section.fields)
     for section in RESUME_SECTIONS
 }
+URL_FIELD_KEYS: dict[str, tuple[str, ...]] = {
+    section.key: tuple(field.key for field in section.fields if field.field_type == "url")
+    for section in RESUME_SECTIONS
+}
+EXTRA_URL_FIELD_KEYS: dict[str, tuple[str, ...]] = {
+    # These are stored as "text" but should still contain URL-like values.
+    "personal-information": ("linkedin", "github"),
+}
 SINGLE_ENTRY_SECTION_KEYS: set[str] = {
     section.key for section in RESUME_SECTIONS if section.entry_type == "single"
 }
@@ -213,3 +222,22 @@ def resume_schema_for_prompt() -> list[dict]:
         for section in RESUME_SECTIONS
     ]
 
+
+def resume_schema_for_client() -> list[dict]:
+    """
+    Resume schema for frontend consumption.
+
+    Includes stable keys plus user-facing titles/labels.
+    """
+    return [
+        {
+            "sectionKey": section.key,
+            "title": section.title,
+            "entryType": section.entry_type,
+            "fields": [
+                {"key": field.key, "label": field.label, "type": field.field_type}
+                for field in section.fields
+            ],
+        }
+        for section in RESUME_SECTIONS
+    ]

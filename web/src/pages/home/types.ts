@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ResumeAnalysisIssue } from "../../api/types";
 
 export type ResumeField = {
   key: string;
@@ -22,8 +23,19 @@ export type FormValues = {
   sections: {
     sectionKey: string;
     items: {
+      id: string;
       values: Record<string, string>;
     }[];
   }[];
 };
 
+export type EntryAnalysis = {
+  entryIssues: ResumeAnalysisIssue[];
+  fieldIssues: Record<string, ResumeAnalysisIssue[]>;
+};
+
+export type SectionAnalysis = {
+  summary: string;
+  sectionIssues: ResumeAnalysisIssue[];
+  entries: Record<string, EntryAnalysis>;
+};

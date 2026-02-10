@@ -1,0 +1,8 @@
+I want to build a full fledged semantic engine for resume analysis. 
+I have all the resume data available. I would like the LLM to run analysis on the 
+entire resume and come with corrections if required; such as typos, grammar, tone etc
+I want the LLM to act as a recruiter based on the users designation and provide outputs.
+After saving resume, I want the user to click on Analyze and that process will take a 
+snapshot of the resume at that time and feed it to the LLM for analysis. 
+I want these LLM results to show up on their respective resume sections with different colors,
+backgrounds and colors.  
